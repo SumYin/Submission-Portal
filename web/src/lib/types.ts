@@ -40,6 +40,9 @@ export interface VideoConstraints {
   maxBitrateKbps?: number
   minFrames?: number
   maxFrames?: number
+  // Optional duration constraints when using time-based limits
+  minDurationSec?: number
+  maxDurationSec?: number
   audio?: {
     allowedCodecs?: string[] // e.g., ["aac","mp3","flac","wav","opus"]
     allowedChannels?: string[] // e.g., ["mono","stereo","5.1"]
@@ -48,6 +51,17 @@ export interface VideoConstraints {
     minBitrateKbps?: number
     maxBitrateKbps?: number
   }
+}
+
+export interface AudioConstraints {
+  minDurationSec?: number
+  maxDurationSec?: number
+  minSampleRateHz?: number
+  maxSampleRateHz?: number
+  minBitrateKbps?: number
+  maxBitrateKbps?: number
+  allowedCodecs?: string[]
+  allowedChannels?: string[] // e.g., ["mono","stereo","5.1"]
 }
 
 export interface ImageConstraints {
@@ -65,6 +79,7 @@ export interface FileConstraints {
   allowAllTypes?: boolean // when true, do not restrict by type/extension
   image?: ImageConstraints
   video?: VideoConstraints
+  audio?: AudioConstraints
 }
 
 export interface FormSpec {

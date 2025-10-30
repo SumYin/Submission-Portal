@@ -1,42 +1,75 @@
 # Submission Portal Backend (FastAPI + SQLite)
 
-A minimal Python API to support the Next.js front-end. Uses SQLite for storage, no media server and no file validation beyond metadata.
+This is a Python backend for the Submission Portal frontend.
 
-## Run locally (Windows PowerShell)
+- Framework: FastAPI (typed, async, auto OpenAPI docs, first-class file upload)
+- Database: SQLite (3NF schema with type-specific constraints tables)
+- Validation: ffprobe for audio/video, Pillow for images (optional, graceful fallback)
+
+## Quick start
+
+1) Install Python 3.11+
+
+2) Create and activate a virtual environment (optional but recommended)
 
 ```powershell
-# 1) Create and activate a virtual environment (optional but recommended)
 python -m venv .venv
 . .venv\Scripts\Activate.ps1
-
-# 2) Install dependencies
-pip install -r backend/requirements.txt
-
-# 3) Start the API server (default http://127.0.0.1:8000)
-python -m uvicorn backend.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Optional environment variables:
-- `SP_DB_PATH`: Path to the SQLite file (defaults to `backend/data.db`).
+3) Install dependencies
 
-The OpenAPI docs are available at http://127.0.0.1:8000/docs.
+```powershell
+pip install -r requirements.txt
+```
 
-## Frontend integration
+4) Configure environment
 
-Set the frontend to use this backend by defining `NEXT_PUBLIC_API_BASE_URL` to the API base URL (e.g., `http://127.0.0.1:8000`). The front-end `api.ts` will send/receive an `Authorization: Bearer <token>` header. Tokens are returned by the API via the `X-Auth-Token` response header on sign up and sign in.
+Copy `.env.example` to `.env` and adjust as needed. Defaults should work out of the box.
 
-Endpoints implemented (subset aligned with frontend contract):
-- `POST /auth/signup` → returns `User` (token in `X-Auth-Token` header)
-- `POST /auth/signin` → returns `User` (token in `X-Auth-Token` header)
-- `POST /auth/signout` → invalidates the token
-- `GET /me` → returns current `User` (requires `Authorization`)
-- `GET /me/profile`, `PATCH /me/profile`
-- `POST /forms`, `GET /forms/mine`, `GET /forms/{id}`, `GET /forms/code/{code}`, `PATCH /forms/{id}`
-- `GET /forms/{id}/submissions`
-- `GET /submit/{code}/validate`
-- `POST /submit/{code}` (accepts JSON with filename, sizeBytes, mimeType; no file upload)
-- `GET /me/submissions`
+5) Run the server
 
-Notes:
-- CORS is open for local development; restrict origins in production.
-- Passwords are hashed with SHA-256 for demo purposes only; do not use in production.
+```powershell
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+6) Point the frontend to the backend
+
+In the `web` app, set:
+
+```powershell
+$env:NEXT_PUBLIC_API_BASE_URL = "http://localhost:8000"
+$env:NEXT_PUBLIC_AUTH_MODE = "token"
+```
+
+Or create a `.env.local` in `web/` with:
+
+```
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_AUTH_MODE=token
+```
+
+7) Open API docs
+
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+## Notes
+
+- File uploads are accepted at `POST /submit/{code}`. You can send JSON metadata (filename/sizeBytes/mimeType) or use multipart form-data with a file.
+- The backend maps the frontend's `constraints` object into normalized tables (image/video/audio specific tables).
+- If `ffprobe` (from FFmpeg) or Pillow are not installed, media validation will still perform basic checks (size, mime/ext) and skip deep inspection.
+- Authentication uses stateless JWT (HS256). Tokens are returned via `X-Auth-Token` header on sign in/up when `NEXT_PUBLIC_AUTH_MODE=token` is used on the frontend.
+
+## Project layout
+
+- `app/main.py` — FastAPI app and routes
+- `app/settings.py` — configuration
+- `app/db.py` — SQLite connection + schema init (runs on startup)
+- `app/schemas.py` — Pydantic models (API contract)
+- `app/auth.py` — auth helpers (password hashing, JWT), auth routes
+- `app/crud.py` — DB helpers for users/forms/submissions
+- `app/validation.py` — file/media validation helpers
+- `storage/` — uploaded files (if multipart uploads used)
+
+MIT (c) 2025

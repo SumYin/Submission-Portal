@@ -68,8 +68,8 @@ export default function SubmitByCodePage() {
               ) : (
                 <div>Allowed types: any</div>
               )}
-              {c.minSizeBytes ? <div>Min size: {c.minSizeBytes} bytes</div> : null}
-              {c.maxSizeBytes ? <div>Max size: {c.maxSizeBytes} bytes</div> : null}
+              {c.minSizeBytes ? <div>Min size: {Math.round(c.minSizeBytes / (1024 * 1024))} MB</div> : null}
+              {c.maxSizeBytes ? <div>Max size: {Math.round(c.maxSizeBytes / (1024 * 1024))} MB</div> : null}
               {c.image ? (
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant="secondary">Image min {c.image.minWidth ?? "-"}x{c.image.minHeight ?? "-"}</Badge>
@@ -106,6 +106,7 @@ export default function SubmitByCodePage() {
               return { ok: !!res.ok, errors: res.errors }
             }}
           />
+          <div className="text-xs text-muted-foreground">Note: Maximum file size is capped at 100 MB.</div>
         </CardContent>
       </Card>
     </div>

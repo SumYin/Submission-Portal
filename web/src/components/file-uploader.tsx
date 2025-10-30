@@ -47,8 +47,9 @@ export function FileUploader({
     if (!file) return
     // quick client pre-checks
     const errs: string[] = []
-    if (minBytes && file.size < minBytes) errs.push(`File smaller than minimum ${minBytes} bytes`)
-    if (maxBytes && file.size > maxBytes) errs.push(`File larger than maximum ${maxBytes} bytes`)
+    const toMB = (b: number) => Math.round((b / (1024 * 1024)) * 10) / 10
+    if (minBytes && file.size < minBytes) errs.push(`File smaller than minimum ${toMB(minBytes)} MB`)
+    if (maxBytes && file.size > maxBytes) errs.push(`File larger than maximum ${toMB(maxBytes)} MB`)
     if (acceptMimeTypes && acceptMimeTypes.length && !acceptMimeTypes.includes(file.type)) {
       if (acceptExtensions && acceptExtensions.length) {
         const ext = (file.name.match(/\.[^.]+$/)?.[0] || "").toLowerCase()
@@ -87,15 +88,15 @@ export function FileUploader({
             </p>
             {(minBytes || maxBytes) && (
               <div className="mt-2 space-x-2">
-                {minBytes ? <Badge variant="secondary">Min {minBytes} B</Badge> : null}
-                {maxBytes ? <Badge variant="secondary">Max {maxBytes} B</Badge> : null}
+                {minBytes ? <Badge variant="secondary">Min {Math.round(minBytes / (1024 * 1024))} MB</Badge> : null}
+                {maxBytes ? <Badge variant="secondary">Max {Math.round(maxBytes / (1024 * 1024))} MB</Badge> : null}
               </div>
             )}
           </div>
         ) : (
           <div className="text-left">
             <p className="font-medium">{file.name}</p>
-            <p className="text-sm text-muted-foreground">{file.type || "unknown"} • {file.size} bytes</p>
+            <p className="text-sm text-muted-foreground">{file.type || "unknown"} • {Math.round(file.size / (1024 * 1024))} MB</p>
           </div>
         )}
       </div>
