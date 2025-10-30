@@ -6,6 +6,7 @@ import { getForm, getFormSubmissions } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import AuthGuard from "@/components/auth-guard"
 
 export default function FormDetailPage() {
   const params = useParams<{ id: string }>()
@@ -27,6 +28,7 @@ export default function FormDetailPage() {
   }, [id])
 
   return (
+    <AuthGuard>
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-semibold">{title || "Form"}</h1>
@@ -66,5 +68,6 @@ export default function FormDetailPage() {
         </CardContent>
       </Card>
     </div>
+    </AuthGuard>
   )
 }

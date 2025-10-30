@@ -6,6 +6,7 @@ import { listMyForms } from "@/lib/api"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import AuthGuard from "@/components/auth-guard"
 
 export default function DashboardPage() {
   const [forms, setForms] = useState<Array<{ id: string; title: string; code: string }>>([])
@@ -13,6 +14,7 @@ export default function DashboardPage() {
     ;(async () => setForms((await listMyForms()).map((f) => ({ id: f.id, title: f.title, code: f.code }))))()
   }, [])
   return (
+    <AuthGuard>
     <div className="max-w-5xl mx-auto p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -65,5 +67,6 @@ export default function DashboardPage() {
         </CardFooter>
       </Card>
     </div>
+    </AuthGuard>
   )
 }

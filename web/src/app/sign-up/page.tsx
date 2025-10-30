@@ -11,6 +11,7 @@ import Link from "next/link"
 import { signUp } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
 
 const schema = z.object({
   username: z.string().min(3),
@@ -19,6 +20,7 @@ const schema = z.object({
 
 export default function SignUpPage() {
   const router = useRouter()
+  const params = useSearchParams()
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { username: "", password: "" },
@@ -28,7 +30,8 @@ export default function SignUpPage() {
     try {
   await signUp({ username: values.username, password: values.password })
       toast.success("Account created")
-      router.push("/")
+      const next = params?.get("next") || "/"
+      router.push(next)
     } catch (e: unknown) {
       const err = e as Error
       toast.error(err?.message ?? "Failed to sign up")
@@ -79,7 +82,7 @@ export default function SignUpPage() {
         </CardContent>
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            Already have an account? <Link href="/sign-in" className="underline">Sign in</Link>
+            Already have an account? <Link href={`/sign-in${params?.get("next") ? `?next=${encodeURIComponent(params.get("next")!)}` : ""}`} className="underline">Sign in</Link>
           </p>
         </CardFooter>
       </Card>

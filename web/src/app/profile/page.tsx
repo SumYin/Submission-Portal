@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { getProfile, updateProfile } from "@/lib/api"
 import { useEffect } from "react"
 import { toast } from "sonner"
+import AuthGuard from "@/components/auth-guard"
 
 const schema = z.object({
   name: z.string().optional(),
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   }
 
   return (
+    <AuthGuard>
     <div className="max-w-3xl mx-auto p-6">
       <Card>
         <CardHeader>
@@ -115,5 +117,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
     </div>
+    </AuthGuard>
   )
 }

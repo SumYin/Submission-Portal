@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createForm } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import AuthGuard from "@/components/auth-guard"
 
 const mimeOptions = [
   { label: "JPEG", value: "image/jpeg" },
@@ -106,6 +107,7 @@ export default function NewFormPage() {
   }
 
   return (
+    <AuthGuard>
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Create form</h1>
 
@@ -389,5 +391,6 @@ export default function NewFormPage() {
         </CardContent>
       </Card>
     </div>
+    </AuthGuard>
   )
 }

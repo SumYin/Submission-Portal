@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { listMySubmissions, getForm } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import AuthGuard from "@/components/auth-guard"
 
 export default function MySubmissionsPage() {
   const [rows, setRows] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string }>>([])
@@ -25,7 +26,8 @@ export default function MySubmissionsPage() {
   }, [])
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <AuthGuard>
+      <div className="max-w-4xl mx-auto p-6">
       <Card>
         <CardHeader>
           <CardTitle>My submissions</CardTitle>
@@ -60,6 +62,7 @@ export default function MySubmissionsPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </AuthGuard>
   )
 }

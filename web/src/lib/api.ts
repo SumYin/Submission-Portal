@@ -7,8 +7,10 @@
  */
 import { Form, FormId, FormSpec, Paginated, Profile, Submission, User } from "./types"
 import * as mock from "./mockApi"
+import { fireAuthChanged } from "./auth-events"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL
+const AUTH_MODE = (process.env.NEXT_PUBLIC_AUTH_MODE || "token").toLowerCase() as "token" | "cookie"
 
 // Basic token storage (header X-Auth-Token provided by backend on sign-in/up)
 const TOKEN_KEY = "sp.token"
@@ -31,8 +33,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   headers.set("Content-Type", headers.get("Content-Type") || "application/json")
   const token = getToken()
-  if (token) headers.set("Authorization", `Bearer ${token}`)
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: "omit" })
+  if (AUTH_MODE === "token" && token) headers.set("Authorization", `Bearer ${token}`)
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: AUTH_MODE === "cookie" ? "include" : "omit" })
   // Capture new token if provided
   const newToken = res.headers.get("X-Auth-Token")
   if (newToken) setToken(newToken)
@@ -53,20 +55,30 @@ function shouldUseMock() {
 
 // Auth
 export async function signUp(params: { username: string; password: string; email?: string }): Promise<User> {
-  if (shouldUseMock()) return mock.signUp(params)
+  if (shouldUseMock()) {
+    const u = await mock.signUp(params)
+    fireAuthChanged()
+    return u
+  }
   const user = await request<User>(`/auth/signup`, {
     method: "POST",
     body: JSON.stringify(params),
   })
+  fireAuthChanged()
   return user
 }
 
 export async function signIn(params: { username: string; password: string }): Promise<User> {
-  if (shouldUseMock()) return mock.signIn(params)
+  if (shouldUseMock()) {
+    const u = await mock.signIn(params)
+    fireAuthChanged()
+    return u
+  }
   const user = await request<User>(`/auth/signin`, {
     method: "POST",
     body: JSON.stringify(params),
   })
+  fireAuthChanged()
   return user
 }
 
@@ -83,9 +95,14 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function signOut(): Promise<void> {
-  if (shouldUseMock()) return mock.signOut()
+  if (shouldUseMock()) {
+    await mock.signOut()
+    fireAuthChanged()
+    return
+  }
   await request<void>(`/auth/signout`, { method: "POST" })
-  setToken(null)
+  if (AUTH_MODE === "token") setToken(null)
+  fireAuthChanged()
 }
 
 // Profile

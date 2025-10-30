@@ -61,6 +61,24 @@ export function PinInput({
     }
   }
 
+  const handlePaste = (idx: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const clip = e.clipboardData?.getData("text") ?? ""
+    const text = clip.replace(/\s+/g, "").replace(/[^0-9A-Za-z]/g, "")
+    if (!text) return
+    // distribute pasted text across inputs starting from current index
+    const nextArr = value.split("")
+    for (let i = 0; i < text.length && idx + i < length; i++) {
+      nextArr[idx + i] = text[i]
+    }
+    const next = nextArr.join("")
+    onChangeAction(next)
+    // focus next available box
+    const focusTo = Math.min(idx + text.length, length - 1)
+    inputs.current[focusTo]?.focus()
+    if (next.replace(/\s/g, "").length >= length) onCompleteAction?.(next.slice(0, length))
+  }
+
   return (
     <div className="flex items-center gap-3">
       {Array.from({ length }).map((_, i) => (
@@ -74,6 +92,7 @@ export function PinInput({
           value={value[i] ?? ""}
           onChange={(e) => handleChange(i, e)}
           onKeyDown={(e) => handleKey(i, e)}
+          onPaste={(e) => handlePaste(i, e)}
           className="w-14 h-14 text-2xl md:w-16 md:h-16 md:text-3xl text-center tracking-widest border-0 border-b-2 rounded-none focus-visible:ring-0 focus:border-primary"
         />
       ))}
