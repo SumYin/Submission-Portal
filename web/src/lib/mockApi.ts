@@ -80,6 +80,17 @@ export async function updateProfile(patch: Partial<Profile>): Promise<Profile> {
   return updated
 }
 
+// Public lookups
+export async function getUser(userId: UserId): Promise<User | null> {
+  const users = load<Record<string, { user: User; password: string }>>(LS_KEY.users, {})
+  return users[userId]?.user ?? null
+}
+
+export async function getUserProfile(userId: UserId): Promise<Profile> {
+  const all = load<Record<UserId, Profile>>(LS_KEY.profile, {})
+  return all[userId] ?? {}
+}
+
 export async function createForm(input: Omit<FormSpec, "code" | "createdAt" | "createdBy"> & { code?: string }): Promise<Form> {
   const user = await getCurrentUser()
   if (!user) throw new Error("Not signed in")
@@ -152,6 +163,8 @@ export async function uploadSubmission(params: {
 }): Promise<{ ok: boolean; submission?: Submission; errors?: string[] }> {
   const form = await getFormByCode(params.code)
   if (!form) return { ok: false, errors: ["Invalid code"] }
+  const user = await getCurrentUser()
+  if (!user) return { ok: false, errors: ["Sign in required"] }
   // Simple client-side validation for size/type; backend will be source of truth later
   const errors: string[] = []
   const { constraints } = form
@@ -159,9 +172,18 @@ export async function uploadSubmission(params: {
     errors.push(`File smaller than minimum ${constraints.minSizeBytes} bytes`)
   if (constraints.maxSizeBytes && params.file.size > constraints.maxSizeBytes)
     errors.push(`File larger than maximum ${constraints.maxSizeBytes} bytes`)
-  if (constraints.allowedTypes && constraints.allowedTypes.length > 0) {
-    const ok = constraints.allowedTypes.includes(params.file.type)
-    if (!ok) errors.push(`File type ${params.file.type || "unknown"} not allowed`)
+  if (!constraints.allowAllTypes) {
+    const hasMimeRules = constraints.allowedTypes && constraints.allowedTypes.length > 0
+    const hasExtRules = constraints.allowedExtensions && constraints.allowedExtensions.length > 0
+    if (hasMimeRules || hasExtRules) {
+      let ok = false
+      if (hasMimeRules && constraints.allowedTypes!.includes(params.file.type)) ok = true
+      if (!ok && hasExtRules) {
+        const ext = (params.file.name.match(/\.[^.]+$/)?.[0] || "").toLowerCase()
+        ok = constraints.allowedExtensions!.map((e) => (e.startsWith(".") ? e.toLowerCase() : `.${e.toLowerCase()}`)).includes(ext)
+      }
+      if (!ok) errors.push(`File type ${params.file.type || "unknown"} not allowed`)
+    }
   }
   if (errors.length) return { ok: false, errors }
 
@@ -176,11 +198,10 @@ export async function uploadSubmission(params: {
     await new Promise((r) => setTimeout(r, 500))
   }
 
-  const user = await getCurrentUser()
   const submission: Submission = {
     id: uid("sub"),
     formId: form.id,
-    submittedBy: user?.id ?? null,
+    submittedBy: user.id,
     status: "accepted",
     filename: params.file.name,
     sizeBytes: params.file.size,
@@ -198,4 +219,38 @@ export async function listMySubmissions(): Promise<Submission[]> {
   const all = load<Record<SubmissionId, Submission>>(LS_KEY.submissions, {})
   const items = Object.values(all).filter((s) => (user ? s.submittedBy === user.id : true))
   return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+}
+
+export async function deleteSubmission(submissionId: SubmissionId): Promise<void> {
+  const me = await getCurrentUser()
+  if (!me) throw new Error("Not signed in")
+  const all = load<Record<SubmissionId, Submission>>(LS_KEY.submissions, {})
+  const sub = all[submissionId]
+  if (!sub) return
+  // Only the submitter or the form owner can remove it
+  const forms = load<Record<FormId, Form>>(LS_KEY.forms, {})
+  const form = forms[sub.formId]
+  const isOwner = form && form.createdBy === me.id
+  const isSubmitter = sub.submittedBy === me.id
+  if (!isOwner && !isSubmitter) throw new Error("Forbidden")
+  delete all[submissionId]
+  save(LS_KEY.submissions, all)
+}
+
+export async function deleteForm(formId: FormId): Promise<void> {
+  const me = await getCurrentUser()
+  if (!me) throw new Error("Not signed in")
+  const forms = load<Record<FormId, Form>>(LS_KEY.forms, {})
+  const form = forms[formId]
+  if (!form) return
+  if (form.createdBy !== me.id) throw new Error("Forbidden")
+  // Remove the form
+  delete forms[formId]
+  save(LS_KEY.forms, forms)
+  // Remove its submissions
+  const subs = load<Record<SubmissionId, Submission>>(LS_KEY.submissions, {})
+  for (const id of Object.keys(subs)) {
+    if (subs[id].formId === formId) delete subs[id]
+  }
+  save(LS_KEY.submissions, subs)
 }

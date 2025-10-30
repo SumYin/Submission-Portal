@@ -30,7 +30,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased no-scrollbar min-h-screen flex flex-col`}>
         <SiteHeader />
         <Providers>
-          <main className="min-h-screen">
+          <main className="flex-1">
             {children}
           </main>
         </Providers>

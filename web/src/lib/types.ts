@@ -34,6 +34,20 @@ export interface VideoConstraints {
   minHeight?: number
   maxWidth?: number
   maxHeight?: number
+  // Additional video constraints for richer validation (backend to enforce)
+  allowedAspectRatios?: string[] // e.g., ["16:9","4:3","1:1","9:16"]
+  minBitrateKbps?: number
+  maxBitrateKbps?: number
+  minFrames?: number
+  maxFrames?: number
+  audio?: {
+    allowedCodecs?: string[] // e.g., ["aac","mp3","flac","wav","opus"]
+    allowedChannels?: string[] // e.g., ["mono","stereo","5.1"]
+    minSampleRateHz?: number
+    maxSampleRateHz?: number
+    minBitrateKbps?: number
+    maxBitrateKbps?: number
+  }
 }
 
 export interface ImageConstraints {
@@ -46,7 +60,9 @@ export interface ImageConstraints {
 export interface FileConstraints {
   minSizeBytes?: number
   maxSizeBytes?: number
-  allowedTypes?: FileType[]
+  allowedTypes?: FileType[] // MIME types
+  allowedExtensions?: string[] // e.g. [".txt", ".md", ".py"]
+  allowAllTypes?: boolean // when true, do not restrict by type/extension
   image?: ImageConstraints
   video?: VideoConstraints
 }

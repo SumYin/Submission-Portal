@@ -5,7 +5,7 @@
  * Later, swap to a real Python backend by setting NEXT_PUBLIC_API_BASE_URL and
  * implementing the fetch calls below.
  */
-import { Form, FormId, FormSpec, Paginated, Profile, Submission, User } from "./types"
+import { Form, FormId, FormSpec, Paginated, Profile, Submission, User, UserId } from "./types"
 import * as mock from "./mockApi"
 import { fireAuthChanged } from "./auth-events"
 
@@ -116,6 +116,21 @@ export async function updateProfile(patch: Partial<Profile>): Promise<Profile> {
   return request<Profile>(`/me/profile`, { method: "PATCH", body: JSON.stringify(patch) })
 }
 
+// Public user lookup
+export async function getUser(userId: UserId): Promise<User | null> {
+  if (shouldUseMock()) return mock.getUser(userId)
+  try {
+    return await request<User>(`/users/${userId}`, { method: "GET" })
+  } catch {
+    return null
+  }
+}
+
+export async function getUserProfile(userId: UserId): Promise<Profile> {
+  if (shouldUseMock()) return mock.getUserProfile(userId)
+  return request<Profile>(`/users/${userId}/profile`, { method: "GET" })
+}
+
 // Forms (Creator)
 export async function createForm(input: Omit<FormSpec, "code" | "createdAt" | "createdBy"> & { code?: string }): Promise<Form> {
   if (shouldUseMock()) return mock.createForm(input)
@@ -189,4 +204,14 @@ export async function uploadSubmission(params: {
 export async function listMySubmissions(): Promise<Submission[]> {
   if (shouldUseMock()) return mock.listMySubmissions()
   return request<Submission[]>(`/me/submissions`, { method: "GET" })
+}
+
+export async function deleteSubmission(id: string): Promise<void> {
+  if (shouldUseMock()) return mock.deleteSubmission(id)
+  return request<void>(`/submissions/${id}`, { method: "DELETE" })
+}
+
+export async function deleteForm(id: string): Promise<void> {
+  if (shouldUseMock()) return mock.deleteForm(id as FormId)
+  return request<void>(`/forms/${id}`, { method: "DELETE" })
 }

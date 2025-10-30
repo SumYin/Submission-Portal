@@ -1,8 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useState } from "react"
-import { listMyForms } from "@/lib/api"
+import { getFormSubmissions, listMyForms, deleteForm } from "@/lib/api"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"
@@ -11,17 +10,36 @@ import { exportToJSON } from "@/lib/export"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
+import Link from "next/link"
 
 export default function DashboardPage() {
-  const [forms, setForms] = useState<Array<{ id: string; title: string; code: string }>>([])
+  const [forms, setForms] = useState<Array<{ id: string; title: string; code: string; createdAt: string; submissions: number }>>([])
+  const [selected, setSelected] = useState<Array<{ id: string }>>([])
   useEffect(() => {
-    ;(async () => setForms((await listMyForms()).map((f) => ({ id: f.id, title: f.title, code: f.code }))))()
+    ;(async () => {
+      const mine = await listMyForms()
+      const rows = await Promise.all(
+        mine.map(async (f) => ({
+          id: f.id,
+          title: f.title,
+          code: f.code,
+          createdAt: f.createdAt,
+          submissions: (await getFormSubmissions(f.id)).total,
+        }))
+      )
+      setForms(rows)
+    })()
   }, [])
   const columns: ColumnDef<(typeof forms)[number]>[] = [
     { accessorKey: "title", header: "Title" },
     { accessorKey: "code", header: "Code", cell: ({ getValue }) => <code className="px-2 py-1 rounded bg-muted text-sm">{String(getValue())}</code> },
+    { accessorKey: "submissions", header: "Submissions" },
+    { id: "createdAt", accessorFn: (r) => r.createdAt, header: "Created", cell: ({ row }) => new Date(row.original.createdAt).toLocaleString() },
     { id: "actions", header: "", cell: ({ row }) => (
-      <div className="text-right">
+      <div className="flex justify-end gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/dashboard/forms/${row.original.id}/edit`}>Edit</Link>
+        </Button>
         <Button asChild size="sm" variant="secondary">
           <Link href={`/dashboard/forms/${row.original.id}`}>View</Link>
         </Button>
@@ -34,6 +52,19 @@ export default function DashboardPage() {
       {/* Desktop actions */}
       <div className="hidden md:flex items-center gap-2">
         <Button size="sm" variant="ghost" onClick={() => exportToJSON("my-forms.json", forms)}>Download JSON</Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={selected.length === 0}
+          onClick={async () => {
+            if (selected.length === 0) return
+            if (!window.confirm(`Delete ${selected.length} form(s)? This will remove all their submissions.`)) return
+            await Promise.all(selected.map((r) => deleteForm((r as any).id)))
+            setForms((prev) => prev.filter((f) => !selected.some((s) => (s as any).id === f.id)))
+          }}
+        >
+          Delete selected
+        </Button>
       </div>
       {/* Mobile compact menu */}
       <div className="md:hidden">
@@ -47,6 +78,17 @@ export default function DashboardPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => exportToJSON("my-forms.json", forms)}>
               Download JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={selected.length === 0}
+              onClick={async () => {
+                if (selected.length === 0) return
+                if (!window.confirm(`Delete ${selected.length} form(s)? This will remove all their submissions.`)) return
+                await Promise.all(selected.map((r) => deleteForm((r as any).id)))
+                setForms((prev) => prev.filter((f) => !selected.some((s) => (s as any).id === f.id)))
+              }}
+            >
+              Delete selected
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -72,6 +114,8 @@ export default function DashboardPage() {
             <DataTable
               columns={columns}
               data={forms}
+              enableSelection
+              onSelectionChange={setSelected as any}
               toolbar={toolbar}
               enableSearch
               searchPlaceholder="Search forms..."

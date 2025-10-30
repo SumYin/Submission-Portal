@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ArrowUpDown } from "lucide-react"
 
 export type DataTableProps<TData, TValue> = {
   columns: ColumnDef<TData, TValue>[]
@@ -141,7 +142,23 @@ export function DataTable<TData extends Record<string, any>, TValue>({ columns, 
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id} style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}>
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : (
+                      header.column.getCanSort() ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="-ml-2 h-8 px-2"
+                          onClick={() => header.column.toggleSorting(header.column.getIsSorted() === "asc")}
+                        >
+                          <span className="mr-2">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </span>
+                          <ArrowUpDown className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        flexRender(header.column.columnDef.header, header.getContext())
+                      )
+                    )}
                   </TableHead>
                 ))}
               </TableRow>

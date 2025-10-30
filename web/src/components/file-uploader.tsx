@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge"
 
 export function FileUploader({
   acceptMimeTypes,
+  acceptExtensions,
   maxBytes,
   minBytes,
   onUpload,
 }: {
   acceptMimeTypes?: string[]
+  acceptExtensions?: string[]
   maxBytes?: number
   minBytes?: number
   onUpload: (file: File, onProgress: (p: number) => void) => Promise<{ ok: boolean; errors?: string[] }>
@@ -31,7 +33,13 @@ export function FileUploader({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     multiple: false,
-    accept: acceptMimeTypes && acceptMimeTypes.length ? acceptMimeTypes.reduce((acc, t) => ({ ...acc, [t]: [] as string[] }), {}) : undefined,
+    accept:
+      (acceptMimeTypes && acceptMimeTypes.length) || (acceptExtensions && acceptExtensions.length)
+        ? {
+            ...(acceptMimeTypes || []).reduce((acc, t) => ({ ...acc, [t]: [] as string[] }), {} as Record<string, string[]>),
+            ...(acceptExtensions || []).reduce((acc, ext) => ({ ...acc, [ext.startsWith(".") ? ext : `.${ext}`]: [] as string[] }), {} as Record<string, string[]>),
+          }
+        : undefined,
     maxSize: maxBytes,
   })
 
@@ -41,7 +49,16 @@ export function FileUploader({
     const errs: string[] = []
     if (minBytes && file.size < minBytes) errs.push(`File smaller than minimum ${minBytes} bytes`)
     if (maxBytes && file.size > maxBytes) errs.push(`File larger than maximum ${maxBytes} bytes`)
-    if (acceptMimeTypes && acceptMimeTypes.length && !acceptMimeTypes.includes(file.type)) errs.push(`Type ${file.type || "unknown"} not allowed`)
+    if (acceptMimeTypes && acceptMimeTypes.length && !acceptMimeTypes.includes(file.type)) {
+      if (acceptExtensions && acceptExtensions.length) {
+        const ext = (file.name.match(/\.[^.]+$/)?.[0] || "").toLowerCase()
+        if (!acceptExtensions.map((e) => (e.startsWith(".") ? e.toLowerCase() : `.${e.toLowerCase()}`)).includes(ext)) {
+          errs.push(`Type ${file.type || "unknown"} not allowed`)
+        }
+      } else {
+        errs.push(`Type ${file.type || "unknown"} not allowed`)
+      }
+    }
     if (errs.length) {
       setErrors(errs)
       return
@@ -65,7 +82,9 @@ export function FileUploader({
         {!file ? (
           <div>
             <p className="font-medium">Drag & drop a file here, or click to select</p>
-            <p className="text-sm text-muted-foreground mt-1">Accepted: {acceptMimeTypes?.join(", ") || "any"}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Accepted: {acceptMimeTypes?.join(", ") || (acceptExtensions?.join(", ") || "any")}
+            </p>
             {(minBytes || maxBytes) && (
               <div className="mt-2 space-x-2">
                 {minBytes ? <Badge variant="secondary">Min {minBytes} B</Badge> : null}

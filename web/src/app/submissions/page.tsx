@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { listMySubmissions, getForm } from "@/lib/api"
+import { listMySubmissions, getForm, getUser, getUserProfile, deleteSubmission } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
@@ -12,22 +12,36 @@ import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
 
 export default function MySubmissionsPage() {
-  const [rows, setRows] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string }>>([])
+  const [rows, setRows] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string; whenIso: string; ownerId?: string; ownerName?: string }>>([])
   const [selected, setSelected] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string }>>([])
 
   useEffect(() => {
     ;(async () => {
       const subs = await listMySubmissions()
       const withForm = await Promise.all(
-        subs.map(async (s) => ({
-          id: s.id,
-          formTitle: (await getForm(s.formId))?.title ?? s.formId,
-          filename: s.filename,
-          status: s.status,
-          when: new Date(s.createdAt).toLocaleString(),
-        }))
+        subs.map(async (s) => {
+          const f = await getForm(s.formId)
+          let ownerId: string | undefined
+          let ownerName: string | undefined
+          if (f) {
+            const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
+            ownerId = u?.id ?? f.createdBy
+            ownerName = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
+          }
+          const createdAt = s.createdAt
+          return {
+            id: s.id,
+            formTitle: f?.title ?? s.formId,
+            filename: s.filename,
+            status: s.status,
+            when: new Date(createdAt).toLocaleString(),
+            whenIso: createdAt,
+            ownerId,
+            ownerName,
+          }
+        })
       )
-      setRows(withForm)
+      setRows(withForm.sort((a, b) => b.whenIso.localeCompare(a.whenIso)))
     })()
   }, [])
 
@@ -35,7 +49,10 @@ export default function MySubmissionsPage() {
     { accessorKey: "formTitle", header: "Form" },
     { accessorKey: "filename", header: "File" },
     { accessorKey: "status", header: "Status", cell: ({ getValue }) => <span className="capitalize">{String(getValue())}</span> },
-    { accessorKey: "when", header: "When" },
+    { id: "when", accessorFn: (r) => r.whenIso, header: "When", cell: ({ row }) => row.original.when },
+    { id: "owner", header: "Owner", cell: ({ row }) => row.original.ownerId ? (
+      <a href={`/profile/${row.original.ownerId}`} className="underline underline-offset-4">{row.original.ownerName}</a>
+    ) : <span className="text-muted-foreground">Unknown</span> },
     { id: "actions", header: "", cell: ({ row }) => (
       <div className="text-right">
         <Button size="sm" variant="outline" onClick={() => downloadFakeFile(row.original.filename, { id: row.original.id, source: "submissions" })}>Download</Button>
@@ -48,6 +65,19 @@ export default function MySubmissionsPage() {
       {/* Desktop actions */}
       <div className="hidden md:flex items-center gap-2">
         <Button size="sm" variant="ghost" onClick={() => exportToJSON("my-submissions.json", rows)}>Download JSON</Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          disabled={selected.length === 0}
+          onClick={async () => {
+            if (selected.length === 0) return
+            if (!window.confirm(`Delete ${selected.length} submission(s)?`)) return
+            await Promise.all(selected.map((s) => deleteSubmission((s as any).id)))
+            setRows((prev) => prev.filter((r) => !selected.some((s) => (s as any).id === r.id)))
+          }}
+        >
+          Delete selected
+        </Button>
         <Button
           size="sm"
           variant="ghost"
@@ -74,6 +104,17 @@ export default function MySubmissionsPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => exportToJSON("my-submissions.json", rows)}>
               Download JSON
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={selected.length === 0}
+              onClick={async () => {
+                if (selected.length === 0) return
+                if (!window.confirm(`Delete ${selected.length} submission(s)?`)) return
+                await Promise.all(selected.map((s) => deleteSubmission((s as any).id)))
+                setRows((prev) => prev.filter((r) => !selected.some((s) => (s as any).id === r.id)))
+              }}
+            >
+              Delete selected
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={selected.length === 0}

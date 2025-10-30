@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { getFormByCode, uploadSubmission } from "@/lib/api"
+import { getFormByCode, getUser, getUserProfile, uploadSubmission } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { FileUploader } from "@/components/file-uploader"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import Link from "next/link"
+import AuthGuard from "@/components/auth-guard"
 
 export default function SubmitByCodePage() {
   const params = useParams<{ code: string }>()
@@ -15,6 +17,8 @@ export default function SubmitByCodePage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [form, setForm] = useState<Awaited<ReturnType<typeof getFormByCode>>>(null)
+  const [ownerName, setOwnerName] = useState<string>("")
+  const [ownerId, setOwnerId] = useState<string>("")
 
   useEffect(() => {
     let mounted = true
@@ -24,6 +28,12 @@ export default function SubmitByCodePage() {
       setForm(f)
       setNotFound(!f)
       setLoading(false)
+      if (f) {
+        const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
+        const name = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
+        setOwnerName(name)
+        setOwnerId(u?.id ?? f.createdBy)
+      }
     })()
     return () => {
       mounted = false
@@ -36,11 +46,18 @@ export default function SubmitByCodePage() {
   const c = form.constraints
 
   return (
+    <AuthGuard>
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Submit to: {form.title}</CardTitle>
           <CardDescription>{form.description}</CardDescription>
+          {ownerId ? (
+            <div className="text-sm text-muted-foreground mt-2">
+              Created by {" "}
+              <Link href={`/profile/${ownerId}`} className="underline underline-offset-4">{ownerName}</Link>
+            </div>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -78,18 +95,20 @@ export default function SubmitByCodePage() {
           <Separator />
 
           <FileUploader
-            acceptMimeTypes={c.allowedTypes}
+            acceptMimeTypes={c.allowAllTypes ? undefined : c.allowedTypes}
+            acceptExtensions={c.allowAllTypes ? undefined : c.allowedExtensions}
             maxBytes={c.maxSizeBytes}
             minBytes={c.minSizeBytes}
             onUpload={async (file, onProgress) => {
               const res = await uploadSubmission({ code, file, onProgress })
               if (res.ok) toast.success("Upload accepted")
-              else toast.error("Upload failed")
+              else toast.error(res.errors?.[0] || "Upload failed")
               return { ok: !!res.ok, errors: res.errors }
             }}
           />
         </CardContent>
       </Card>
     </div>
+    </AuthGuard>
   )
 }
