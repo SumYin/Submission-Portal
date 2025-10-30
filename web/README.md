@@ -61,6 +61,18 @@ Validation responsibilities
 - Server (Python): authoritative validation (size/type, video codec/fps, image/video resolution, deadlines, per-user limits). Return accepted/rejected with reasons.
 
 File uploads
+Exports and downloads
+- Current UI supports exporting metadata (tables) to CSV and JSON via helpers in `src/lib/export.ts`.
+- Placeholders for file downloads are provided:
+	- `downloadFakeFile(filename, info)` simulates a single-file download.
+	- `downloadZipPlaceholder(zipName, items)` simulates a bulk ZIP export with a manifest.
+- When wiring the Python backend, add endpoints and swap in real downloads:
+	- Single file: `GET /submissions/{id}/download` → returns a file (stream/blob) or a pre-signed URL.
+	- Bulk export: `POST /forms/{id}/submissions/export` with `{ ids?: string[] }` → returns `{ jobId }` and later `GET /exports/{jobId}` → `{ status, url }`.
+- UI integration points:
+	- Submissions page (`src/app/submissions/page.tsx`): per-row “Download” uses the placeholder now; change it to request the real file URL and trigger a download.
+	- Dashboard Form Detail (`src/app/dashboard/forms/[id]/page.tsx`): has per-row “Download” and bulk “ZIP selected” (placeholder). Swap to call the backend and download the ZIP when ready.
+
 - Current uploader uses a simple single-shot upload with progress simulation.
 - For production, consider Uppy/Tus for resumable, chunked uploads, S3 direct uploads or a CDN-backed storage.
 
