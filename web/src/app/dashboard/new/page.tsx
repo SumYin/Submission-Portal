@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useMemo } from "react"
 import { z } from "zod"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -16,7 +17,9 @@ import AuthGuard from "@/components/auth-guard"
 import { Slider } from "@/components/ui/slider"
 import { FILE_CATEGORIES, FileCategoryId, VIDEO_CODECS, AUDIO_CODECS, AUDIO_CHANNELS, ASPECT_RATIOS } from "@/lib/fileTaxonomy"
 import CustomExtensionsInput from "../_components/custom-extensions-input"
-import { DateTimePicker } from "@/components/ui/date-time-picker"
+import Calendar05 from "@/components/calendar-05"
+import { type DateRange } from "react-day-picker"
+import { endOfDay, startOfDay } from "date-fns"
 
 // Form schema for creation UI
 const schema = z.object({
@@ -99,6 +102,54 @@ export default function NewFormPage() {
   const allowedMimesVal = useWatch({ control: form.control, name: "allowedMimes" }) as string[] | undefined
   const customExtensionsVal = useWatch({ control: form.control, name: "customExtensions" }) as string[] | undefined
   const lengthMode = useWatch({ control: form.control, name: "video.lengthMode" }) as "frames" | "duration" | undefined
+  const opensAtVal = useWatch({ control: form.control, name: "opensAt" })
+  const closesAtVal = useWatch({ control: form.control, name: "closesAt" })
+
+  const scheduleRange = useMemo(() => {
+    const from = opensAtVal ? new Date(opensAtVal) : undefined
+    const to = closesAtVal ? new Date(closesAtVal) : undefined
+    if (!from && !to) return undefined
+    if (from && to) {
+      const [start, end] = from > to ? [to, from] : [from, to]
+      return { from: start, to: end }
+    }
+    const single = from ?? to
+    return single ? { from: single, to: single } : undefined
+  }, [opensAtVal, closesAtVal])
+
+  const scheduleSummary = useMemo(() => {
+    if (!scheduleRange?.from) {
+      return "No open or close date limits"
+    }
+    const fromLabel = scheduleRange.from.toLocaleDateString()
+    const toLabel = scheduleRange.to ? scheduleRange.to.toLocaleDateString() : fromLabel
+    return fromLabel === toLabel ? `Opens on ${fromLabel}` : `${fromLabel} – ${toLabel}`
+  }, [scheduleRange])
+
+  const setScheduleRange = useCallback(
+    (range?: DateRange) => {
+      if (!range?.from && !range?.to) {
+        form.setValue("opensAt", undefined, { shouldDirty: true, shouldTouch: true })
+        form.setValue("closesAt", undefined, { shouldDirty: true, shouldTouch: true })
+        return
+      }
+      const normalizedFrom = range.from
+      const normalizedTo = range.to ?? range.from
+      const [rawStart, rawEnd] = normalizedFrom && normalizedTo && normalizedFrom > normalizedTo
+        ? [normalizedTo, normalizedFrom]
+        : [normalizedFrom, normalizedTo]
+      const start = rawStart ? startOfDay(rawStart) : undefined
+      const end = rawEnd ? endOfDay(rawEnd) : undefined
+      form.setValue("opensAt", start ? start.toISOString() : undefined, { shouldDirty: true, shouldTouch: true })
+      form.setValue("closesAt", end ? end.toISOString() : undefined, { shouldDirty: true, shouldTouch: true })
+    },
+    [form],
+  )
+
+  const clearSchedule = useCallback(() => {
+    form.setValue("opensAt", undefined, { shouldDirty: true, shouldTouch: true })
+    form.setValue("closesAt", undefined, { shouldDirty: true, shouldTouch: true })
+  }, [form])
 
   const onCreate = async () => {
     const values = form.getValues()
@@ -790,38 +841,28 @@ export default function NewFormPage() {
                 <FormField
                   control={form.control}
                   name="opensAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Opens</FormLabel>
-                      <FormControl>
-                        <DateTimePicker
-                          id="opens"
-                          label="Opens"
-                          valueIso={field.value}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="closesAt"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Closes</FormLabel>
-                      <FormControl>
-                        <DateTimePicker
-                          id="closes"
-                          label="Closes"
-                          valueIso={field.value}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field: _field }) => {
+                    return (
+                      <FormItem className="space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <FormLabel className="text-base">Availability window</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Choose optional open and close dates. Leave blank to accept submissions anytime.
+                            </p>
+                          </div>
+                          <Button type="button" variant="ghost" size="sm" onClick={clearSchedule} disabled={!scheduleRange}>
+                            Clear
+                          </Button>
+                        </div>
+                        <FormControl>
+                          <Calendar05 value={scheduleRange} onChange={setScheduleRange} />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">{scheduleSummary}</p>
+                        <FormMessage />
+                      </FormItem>
+                    )
+                  }}
                 />
               </TabsContent>
 

@@ -151,8 +151,8 @@ export async function validateFormCode(code: string): Promise<{ ok: boolean; for
   const form = await getFormByCode(code)
   if (!form) return { ok: false, form: null, reason: "Code not found" }
   const now = Date.now()
-  if (form.opensAt && now < Date.parse(form.opensAt)) return { ok: false, form, reason: "Submissions not open yet" }
-  if (form.closesAt && now > Date.parse(form.closesAt)) return { ok: false, form, reason: "Submissions closed" }
+  if (form.opensAt && now < Date.parse(form.opensAt)) return { ok: false, form, reason: `Submissions open on ${new Date(form.opensAt).toLocaleString()}` }
+  if (form.closesAt && now > Date.parse(form.closesAt)) return { ok: false, form, reason: `Submissions closed on ${new Date(form.closesAt).toLocaleString()}` }
   return { ok: true, form }
 }
 
@@ -165,6 +165,13 @@ export async function uploadSubmission(params: {
   if (!form) return { ok: false, errors: ["Invalid code"] }
   const user = await getCurrentUser()
   if (!user) return { ok: false, errors: ["Sign in required"] }
+  const now = Date.now()
+  if (form.opensAt && now < Date.parse(form.opensAt)) {
+    return { ok: false, errors: ["Submissions are not open yet"] }
+  }
+  if (form.closesAt && now > Date.parse(form.closesAt)) {
+    return { ok: false, errors: ["Submissions are closed"] }
+  }
   // Simple client-side validation for size/type; backend will be source of truth later
   const errors: string[] = []
   const { constraints } = form

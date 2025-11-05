@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 export function FileUploader({
   acceptMimeTypes,
@@ -12,12 +13,16 @@ export function FileUploader({
   maxBytes,
   minBytes,
   onUpload,
+  disabled = false,
+  disabledReason,
 }: {
   acceptMimeTypes?: string[]
   acceptExtensions?: string[]
   maxBytes?: number
   minBytes?: number
   onUpload: (file: File, onProgress: (p: number) => void) => Promise<{ ok: boolean; errors?: string[] }>
+  disabled?: boolean
+  disabledReason?: string
 }) {
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState(0)
@@ -25,10 +30,14 @@ export function FileUploader({
   const [busy, setBusy] = useState(false)
 
   const onDrop = useCallback((accepted: File[]) => {
+    if (disabled) {
+      setErrors(disabledReason ? [disabledReason] : ["Uploads are currently disabled"])
+      return
+    }
     setErrors([])
     setProgress(0)
     setFile(accepted[0] ?? null)
-  }, [])
+  }, [disabled, disabledReason])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -41,9 +50,14 @@ export function FileUploader({
           }
         : undefined,
     maxSize: maxBytes,
+    disabled,
   })
 
   const startUpload = async () => {
+    if (disabled) {
+      setErrors(disabledReason ? [disabledReason] : ["Uploads are currently disabled"])
+      return
+    }
     if (!file) return
     // quick client pre-checks
     const errs: string[] = []
@@ -75,9 +89,11 @@ export function FileUploader({
     <div className="space-y-3">
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer ${
-          isDragActive ? "bg-muted" : "bg-background"
-        }`}
+        className={cn(
+          "border-2 border-dashed rounded-md p-6 text-center",
+          disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+          isDragActive && !disabled ? "bg-muted" : "bg-background",
+        )}
       >
         <input {...getInputProps()} />
         {!file ? (
@@ -92,6 +108,9 @@ export function FileUploader({
                 {maxBytes ? <Badge variant="secondary">Max {Math.round(maxBytes / (1024 * 1024))} MB</Badge> : null}
               </div>
             )}
+            {disabled && disabledReason ? (
+              <p className="mt-3 text-sm text-muted-foreground">{disabledReason}</p>
+            ) : null}
           </div>
         ) : (
           <div className="text-left">
@@ -106,7 +125,7 @@ export function FileUploader({
           <Progress value={progress} />
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setFile(null)} disabled={busy}>Remove</Button>
-            <Button onClick={startUpload} disabled={busy}>Upload</Button>
+            <Button onClick={startUpload} disabled={busy || disabled}>Upload</Button>
           </div>
         </div>
       ) : null}

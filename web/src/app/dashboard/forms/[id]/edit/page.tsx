@@ -1,7 +1,7 @@
 "use client"
 
+import { useCallback, useEffect, useMemo } from "react"
 import { z } from "zod"
-import { useEffect } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useParams, useRouter } from "next/navigation"
@@ -17,6 +17,9 @@ import { Slider } from "@/components/ui/slider"
 import { FILE_CATEGORIES, FileCategoryId, VIDEO_CODECS, AUDIO_CODECS, AUDIO_CHANNELS, ASPECT_RATIOS } from "@/lib/fileTaxonomy"
 import CustomExtensionsInput from "../../../_components/custom-extensions-input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Calendar05 from "@/components/calendar-05"
+import { type DateRange } from "react-day-picker"
+import { endOfDay, startOfDay } from "date-fns"
 
 const schema = z.object({
   title: z.string().min(1, "Name is required"),
@@ -66,6 +69,8 @@ const schema = z.object({
       durationRange: z.tuple([z.number().min(0), z.number().min(0)]).optional(),
     })
     .optional(),
+  opensAt: z.string().optional(),
+  closesAt: z.string().optional(),
 })
 
 export default function EditFormPage() {
@@ -75,12 +80,67 @@ export default function EditFormPage() {
   const form = useForm<z.infer<typeof schema>>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
-    defaultValues: { title: "", description: "", kind: "image", allowedMimes: [], customExtensions: [], sizeMB: [0, 100] },
+    defaultValues: {
+      title: "",
+      description: "",
+      kind: "image",
+      allowedMimes: [],
+      customExtensions: [],
+      sizeMB: [0, 100],
+      opensAt: undefined,
+      closesAt: undefined,
+    },
   })
   const kind = useWatch({ control: form.control, name: "kind" })
   const allowedMimesVal = useWatch({ control: form.control, name: "allowedMimes" }) as string[] | undefined
   const customExtensionsVal = useWatch({ control: form.control, name: "customExtensions" }) as string[] | undefined
   const lengthMode = useWatch({ control: form.control, name: "video.lengthMode" }) as "frames" | "duration" | undefined
+  const opensAtVal = useWatch({ control: form.control, name: "opensAt" })
+  const closesAtVal = useWatch({ control: form.control, name: "closesAt" })
+
+  const scheduleRange = useMemo(() => {
+    const from = opensAtVal ? new Date(opensAtVal) : undefined
+    const to = closesAtVal ? new Date(closesAtVal) : undefined
+    if (!from && !to) return undefined
+    if (from && to) {
+      const [start, end] = from > to ? [to, from] : [from, to]
+      return { from: start, to: end }
+    }
+    const single = from ?? to
+    return single ? { from: single, to: single } : undefined
+  }, [opensAtVal, closesAtVal])
+
+  const scheduleSummary = useMemo(() => {
+    if (!scheduleRange?.from) return "No open or close date limits"
+    const fromLabel = scheduleRange.from.toLocaleDateString()
+    const toLabel = scheduleRange.to ? scheduleRange.to.toLocaleDateString() : fromLabel
+    return fromLabel === toLabel ? `Opens on ${fromLabel}` : `${fromLabel} – ${toLabel}`
+  }, [scheduleRange])
+
+  const setScheduleRange = useCallback(
+    (range?: DateRange) => {
+      if (!range?.from && !range?.to) {
+        form.setValue("opensAt", undefined, { shouldDirty: true, shouldTouch: true })
+        form.setValue("closesAt", undefined, { shouldDirty: true, shouldTouch: true })
+        return
+      }
+      const normalizedFrom = range.from
+      const normalizedTo = range.to ?? range.from
+      const [rawStart, rawEnd] = normalizedFrom && normalizedTo && normalizedFrom > normalizedTo
+        ? [normalizedTo, normalizedFrom]
+        : [normalizedFrom, normalizedTo]
+      const start = rawStart ? startOfDay(rawStart) : undefined
+      const end = rawEnd ? endOfDay(rawEnd) : undefined
+      form.setValue("opensAt", start ? start.toISOString() : undefined, { shouldDirty: true, shouldTouch: true })
+      form.setValue("closesAt", end ? end.toISOString() : undefined, { shouldDirty: true, shouldTouch: true })
+    },
+    [form],
+  )
+
+  const clearSchedule = useCallback(() => {
+    form.setValue("opensAt", undefined, { shouldDirty: true, shouldTouch: true })
+    form.setValue("closesAt", undefined, { shouldDirty: true, shouldTouch: true })
+  }, [form])
 
   useEffect(() => {
     if (!id) return
@@ -138,6 +198,8 @@ export default function EditFormPage() {
               durationRange: [f.constraints.audio.minDurationSec ?? 0, f.constraints.audio.maxDurationSec ?? 0],
             }
           : undefined,
+        opensAt: f.opensAt ?? undefined,
+        closesAt: f.closesAt ?? undefined,
       })
     })()
   }, [id, form])
@@ -200,6 +262,8 @@ export default function EditFormPage() {
               }
             : undefined,
         },
+        opensAt: values.opensAt || undefined,
+        closesAt: values.closesAt || undefined,
       }
       await updateForm(id, payload)
       toast.success("Form updated. New constraints apply to future submissions only.")
@@ -225,6 +289,7 @@ export default function EditFormPage() {
                   <TabsList>
                     <TabsTrigger value="type">Type</TabsTrigger>
                     <TabsTrigger value="constraints">Constraints</TabsTrigger>
+                    <TabsTrigger value="schedule">Schedule</TabsTrigger>
                     <TabsTrigger value="review">Review</TabsTrigger>
                   </TabsList>
 
@@ -668,6 +733,33 @@ export default function EditFormPage() {
                         )} />
                       </div>
                     ) : null}
+                  </TabsContent>
+
+                  <TabsContent value="schedule" className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="opensAt"
+                      render={({ field: _field }) => (
+                        <FormItem className="space-y-4">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <FormLabel className="text-base">Availability window</FormLabel>
+                              <p className="text-sm text-muted-foreground">
+                                Choose optional open and close dates. Leave blank to accept submissions anytime.
+                              </p>
+                            </div>
+                            <Button type="button" variant="ghost" size="sm" onClick={clearSchedule} disabled={!scheduleRange}>
+                              Clear
+                            </Button>
+                          </div>
+                          <FormControl>
+                            <Calendar05 value={scheduleRange} onChange={setScheduleRange} />
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">{scheduleSummary}</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </TabsContent>
 
                   <TabsContent value="review" className="space-y-4">
