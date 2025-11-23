@@ -54,7 +54,7 @@ export default function DebugFileInfo() {
                             type="file"
                             className="hidden"
                             onChange={handleFileChange}
-                            accept="image/*,video/*"
+                            accept="image/*,video/*,audio/*"
                         />
                     </label>
                     <Button
@@ -127,6 +127,21 @@ export default function DebugFileInfo() {
                                     <div><strong>Height:</strong> {info.video.height}px</div>
                                     <div><strong>Codec:</strong> {info.video.codec}</div>
                                     <div><strong>Frame Rate:</strong> {info.video.frameRate}</div>
+                                    {info.duration && <div><strong>Duration:</strong> {info.duration.toFixed(2)}s</div>}
+                                    {info.format && <div><strong>Format:</strong> {info.format}</div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Audio Metadata */}
+                        {info.audio && (
+                            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
+                                <div className="font-medium text-sm mb-2 text-amber-800 dark:text-amber-200">Audio Metadata (via ffprobe)</div>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div><strong>Codec:</strong> {info.audio.codec}</div>
+                                    <div><strong>Channels:</strong> {info.audio.channels}</div>
+                                    <div><strong>Sample Rate:</strong> {info.audio.sampleRate} Hz</div>
+                                    {info.audio.bitRate && <div><strong>Bit Rate:</strong> {info.audio.bitRate} bps</div>}
                                     {info.duration && <div><strong>Duration:</strong> {info.duration.toFixed(2)}s</div>}
                                     {info.format && <div><strong>Format:</strong> {info.format}</div>}
                                 </div>

@@ -94,6 +94,65 @@ def validate_submission(file_path, mime_type, constraints):
         except Exception as e:
             return False, f"Invalid image: {str(e)}", {}
 
+    elif mime_type.startswith('audio/'):
+        raw_meta, error = get_video_metadata(file_path)  # ffprobe works for audio too
+        if error:
+            return False, f"Invalid audio file: {error}", {}
+        
+        # Extract audio stream
+        audio_stream = next((s for s in raw_meta.get('streams', []) if s['codec_type'] == 'audio'), None)
+        if not audio_stream:
+            return False, "No audio stream found", {}
+        
+        codec = audio_stream.get('codec_name')
+        sample_rate = int(audio_stream.get('sample_rate', 0))
+        channels = int(audio_stream.get('channels', 0))
+        duration = float(raw_meta.get('format', {}).get('duration', 0))
+        bit_rate = audio_stream.get('bit_rate')
+        
+        metadata = {
+            'codec': codec,
+            'sampleRate': sample_rate,
+            'channels': channels,
+            'duration': duration,
+            'bitRate': bit_rate,
+            'raw': raw_meta
+        }
+        
+        audio_constraints = constraints.get('audio', {})
+        
+        # Check allowed codecs
+        if audio_constraints.get('allowedCodecs'):
+            if codec not in audio_constraints['allowedCodecs']:
+                return False, f"Codec {codec} not allowed", metadata
+        
+        # Check sample rate range
+        if audio_constraints.get('minSampleRateHz') and sample_rate < audio_constraints['minSampleRateHz']:
+            return False, f"Sample rate {sample_rate}Hz < min {audio_constraints['minSampleRateHz']}Hz", metadata
+        if audio_constraints.get('maxSampleRateHz') and sample_rate > audio_constraints['maxSampleRateHz']:
+            return False, f"Sample rate {sample_rate}Hz > max {audio_constraints['maxSampleRateHz']}Hz", metadata
+        
+        # Check bitrate range (if available)
+        if bit_rate:
+            bit_rate_kbps = int(bit_rate) // 1000
+            if audio_constraints.get('minBitrateKbps') and bit_rate_kbps < audio_constraints['minBitrateKbps']:
+                return False, f"Bitrate {bit_rate_kbps}kbps < min {audio_constraints['minBitrateKbps']}kbps", metadata
+            if audio_constraints.get('maxBitrateKbps') and bit_rate_kbps > audio_constraints['maxBitrateKbps']:
+                return False, f"Bitrate {bit_rate_kbps}kbps > max {audio_constraints['maxBitrateKbps']}kbps", metadata
+        
+        # Check duration
+        if audio_constraints.get('minDurationSec') and duration < audio_constraints['minDurationSec']:
+            return False, f"Duration {duration}s < min {audio_constraints['minDurationSec']}s", metadata
+        if audio_constraints.get('maxDurationSec') and duration > audio_constraints['maxDurationSec']:
+            return False, f"Duration {duration}s > max {audio_constraints['maxDurationSec']}s", metadata
+        
+        # Check channels (convert constraint format to number)
+        if audio_constraints.get('allowedChannels'):
+            channel_map = {'mono': 1, 'stereo': 2, '5.1': 6}
+            allowed_channel_counts = [channel_map.get(ch, 0) for ch in audio_constraints['allowedChannels']]
+            if channels not in allowed_channel_counts:
+                return False, f"Channel count {channels} not allowed", metadata
+
     return True, "Valid", metadata
 
 def get_file_info(file_path, mime_type):
@@ -150,7 +209,32 @@ def get_file_info(file_path, mime_type):
         except Exception as e:
             info['error'] = str(e)
     
+    # Try audio metadata with ffprobe
+    elif mime_type.startswith('audio/'):
+        raw_meta, error = get_video_metadata(file_path)  # ffprobe works for audio too
+        if not error and raw_meta:
+            info['tools'].append('ffprobe')
+            
+            # Extract specific audio stream info
+            audio_stream = next((s for s in raw_meta.get('streams', []) if s['codec_type'] == 'audio'), None)
+            if audio_stream:
+                info['audio'] = {
+                    'bitRate': audio_stream.get('bit_rate'),
+                    'codec': audio_stream.get('codec_name'),
+                    'sampleRate': int(audio_stream.get('sample_rate', 0)),
+                    'channels': int(audio_stream.get('channels', 0))
+                }
+            
+            # Extract format info
+            fmt = raw_meta.get('format', {})
+            info['bitRate'] = fmt.get('bit_rate')
+            info['duration'] = float(fmt.get('duration', 0)) if fmt.get('duration') else 0
+            info['format'] = fmt.get('format_name')
+            
+        else:
+            info['error'] = error
+    
     else:
-        info['message'] = 'File type not recognized as video or image. Only basic info available.'
+        info['message'] = 'File type not recognized as video, audio, or image. Only basic info available.'
     
     return info
