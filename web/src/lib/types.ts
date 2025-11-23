@@ -9,11 +9,16 @@ export interface User {
   id: UserId
   username: string
   email?: string
+  displayName?: string
+  bio?: string
+  isDeleted?: boolean
 }
 
 export interface Profile {
   name?: string
-  description?: string
+  displayName?: string
+  bio?: string
+  description?: string // Keeping for backward compatibility if used elsewhere
   email?: string
   phone?: string
 }

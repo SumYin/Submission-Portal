@@ -12,26 +12,26 @@ export function downloadBlob(filename: string, mimeType: string, data: string | 
   URL.revokeObjectURL(url)
 }
 
-export function toCSV(rows: any[], headers?: { key: string; label?: string }[]): string {
+export function toCSV<T extends Record<string, unknown>>(rows: T[], headers?: { key: string; label?: string }[]): string {
   if (!rows || rows.length === 0) return ""
   const keys = headers?.map((h) => h.key) ?? Object.keys(rows[0])
   const labels = headers?.map((h) => h.label || h.key) ?? keys
-  const esc = (v: any) => {
+  const esc = (v: unknown) => {
     if (v == null) return ""
     const s = String(v)
     if (s.includes("\n") || s.includes(",") || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"'
     return s
   }
-  const lines = [labels.join(","), ...rows.map((r) => keys.map((k) => esc((r as any)[k])).join(","))]
+  const lines = [labels.join(","), ...rows.map((r) => keys.map((k) => esc(r[k])).join(","))]
   return lines.join("\n")
 }
 
-export function exportToCSV(filename: string, rows: any[], headers?: { key: string; label?: string }[]) {
+export function exportToCSV<T extends Record<string, unknown>>(filename: string, rows: T[], headers?: { key: string; label?: string }[]) {
   const csv = toCSV(rows, headers)
   downloadBlob(filename, "text/csv;charset=utf-8", csv)
 }
 
-export function exportToJSON(filename: string, rows: any[]) {
+export function exportToJSON<T>(filename: string, rows: T[]) {
   const json = JSON.stringify(rows, null, 2)
   downloadBlob(filename, "application/json", json)
 }

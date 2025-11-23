@@ -11,9 +11,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
 
+type SubmissionRow = {
+  id: string
+  formTitle: string
+  filename: string
+  status: string
+  when: string
+  whenIso: string
+  ownerId?: string
+  ownerName?: string
+}
+
 export default function MySubmissionsPage() {
-  const [rows, setRows] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string; whenIso: string; ownerId?: string; ownerName?: string }>>([])
-  const [selected, setSelected] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string }>>([])
+  const [rows, setRows] = useState<SubmissionRow[]>([])
+  const [selected, setSelected] = useState<SubmissionRow[]>([])
 
   useEffect(() => {
     ; (async () => {
@@ -76,8 +87,8 @@ export default function MySubmissionsPage() {
           onClick={async () => {
             if (selected.length === 0) return
             if (!window.confirm(`Delete ${selected.length} submission(s)?`)) return
-            await Promise.all(selected.map((s) => deleteSubmission((s as any).id)))
-            setRows((prev) => prev.filter((r) => !selected.some((s) => (s as any).id === r.id)))
+            await Promise.all(selected.map((s) => deleteSubmission(s.id)))
+            setRows((prev) => prev.filter((r) => !selected.some((s) => s.id === r.id)))
           }}
         >
           Delete selected
@@ -114,8 +125,8 @@ export default function MySubmissionsPage() {
               onClick={async () => {
                 if (selected.length === 0) return
                 if (!window.confirm(`Delete ${selected.length} submission(s)?`)) return
-                await Promise.all(selected.map((s) => deleteSubmission((s as any).id)))
-                setRows((prev) => prev.filter((r) => !selected.some((s) => (s as any).id === r.id)))
+                await Promise.all(selected.map((s) => deleteSubmission(s.id)))
+                setRows((prev) => prev.filter((r) => !selected.some((s) => s.id === r.id)))
               }}
             >
               Delete selected

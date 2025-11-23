@@ -29,13 +29,25 @@ def get_user(user_id):
 @api.route('/users/<user_id>/profile', methods=['GET'])
 def get_user_profile(user_id):
     user = User.query.get_or_404(user_id)
-    return jsonify({'name': user.username, 'email': user.email})
+    if user.is_deleted:
+        return jsonify({'name': 'Deleted User', 'displayName': 'Deleted User', 'bio': ''})
+    return jsonify({
+        'name': user.username, 
+        'displayName': user.display_name or user.username,
+        'bio': user.bio,
+        'email': user.email # Consider hiding this for public profiles? Keeping for now as per existing code
+    })
 
 @api.route('/me/profile', methods=['GET'])
 @login_required
 def get_my_profile():
     """Get the current user's profile"""
-    return jsonify({'name': current_user.username, 'email': current_user.email})
+    return jsonify({
+        'name': current_user.username, 
+        'email': current_user.email,
+        'displayName': current_user.display_name,
+        'bio': current_user.bio
+    })
 
 @api.route('/me/profile', methods=['PATCH'])
 @login_required
@@ -44,12 +56,11 @@ def update_my_profile():
     data = request.get_json()
     
     # Update allowed fields
-    if 'name' in data:
-        # Check if username is already taken by another user
-        existing = User.query.filter_by(username=data['name']).first()
-        if existing and existing.id != current_user.id:
-            return jsonify({'error': 'Username already taken'}), 400
-        current_user.username = data['name']
+    if 'displayName' in data:
+        current_user.display_name = data['displayName']
+        
+    if 'bio' in data:
+        current_user.bio = data['bio']
     
     if 'email' in data:
         # Check if email is already taken by another user
@@ -59,7 +70,40 @@ def update_my_profile():
         current_user.email = data['email']
     
     db.session.commit()
-    return jsonify({'name': current_user.username, 'email': current_user.email})
+    return jsonify({
+        'name': current_user.username, 
+        'email': current_user.email,
+        'displayName': current_user.display_name,
+        'bio': current_user.bio
+    })
+
+@api.route('/me', methods=['DELETE'])
+@login_required
+def delete_my_account():
+    """
+    Delete the current user's account.
+    Clears personal info, renames username, marks as deleted.
+    """
+    from flask_login import logout_user
+    
+    # 1. Clear info
+    current_user.display_name = None
+    current_user.bio = None
+    # We set email to None. Unique constraint allows multiple NULLs in SQLite/Postgres usually.
+    # If using a DB that doesn't (like older MSSQL), this might fail, but standard is OK.
+    current_user.email = None 
+    current_user.password_hash = "deleted" # Scramble password
+    
+    # 2. Rename username to free it up and anonymize
+    # Use a timestamp or UUID to ensure uniqueness if ID isn't enough (though ID is unique)
+    current_user.username = f"deletedaccount_{current_user.id}"
+    
+    # 3. Mark deleted
+    current_user.is_deleted = True
+    
+    db.session.commit()
+    logout_user()
+    return '', 204
 
 # --- Forms ---
 

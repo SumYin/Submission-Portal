@@ -30,7 +30,7 @@ def signin():
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-    if user and user.check_password(password):
+    if user and user.check_password(password) and not user.is_deleted:
         login_user(user)
         return jsonify(user.to_dict())
     

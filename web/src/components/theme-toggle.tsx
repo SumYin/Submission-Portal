@@ -18,8 +18,8 @@ export function ThemeToggle() {
     const onChange = () => {
       if (mode === "system") applyTheme("system")
     }
-    mq?.addEventListener?.("change", onChange as any)
-    return () => mq?.removeEventListener?.("change", onChange as any)
+    mq?.addEventListener?.("change", onChange)
+    return () => mq?.removeEventListener?.("change", onChange)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

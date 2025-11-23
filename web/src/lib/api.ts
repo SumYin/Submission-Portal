@@ -129,6 +129,18 @@ export async function updateProfile(patch: Partial<Profile>): Promise<Profile> {
   return request<Profile>(`/me/profile`, { method: "PATCH", body: JSON.stringify(patch) })
 }
 
+export async function deleteAccount(): Promise<void> {
+  if (shouldUseMock()) {
+    // Mock deletion by just signing out
+    await mock.signOut()
+    fireAuthChanged()
+    return
+  }
+  await request<void>(`/me`, { method: "DELETE" })
+  if (AUTH_MODE === "token") setToken(null)
+  fireAuthChanged()
+}
+
 // Public user lookup
 export async function getUser(userId: UserId): Promise<User | null> {
   if (shouldUseMock()) return mock.getUser(userId)

@@ -10,6 +10,9 @@ class User(UserMixin, db.Model):
     id = db.Column(db.String(36), primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
+    display_name = db.Column(db.String(128))
+    bio = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
     password_hash = db.Column(db.String(128))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -23,7 +26,10 @@ class User(UserMixin, db.Model):
         return {
             'id': self.id,
             'username': self.username,
-            'email': self.email
+            'email': self.email,
+            'displayName': self.display_name,
+            'bio': self.bio,
+            'isDeleted': self.is_deleted
         }
 
 class Form(db.Model):

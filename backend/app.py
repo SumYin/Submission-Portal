@@ -29,7 +29,10 @@ def create_app(config_class=Config):
 
     @login.user_loader
     def load_user(id):
-        return User.query.get(id)
+        user = User.query.get(id)
+        if user and user.is_deleted:
+            return None
+        return user
 
     @login.unauthorized_handler
     def unauthorized():

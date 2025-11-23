@@ -60,7 +60,7 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function signOut(): Promise<void> {
-  save(LS_KEY.session, null as any)
+  save<{ userId: string } | null>(LS_KEY.session, null)
 }
 
 export async function getProfile(): Promise<Profile> {

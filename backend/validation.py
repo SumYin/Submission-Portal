@@ -112,19 +112,24 @@ def get_file_info(file_path, mime_type):
         raw_meta, error = get_video_metadata(file_path)
         if not error and raw_meta:
             info['tools'].append('ffprobe')
+            
+            # Extract specific video stream info
             video_stream = next((s for s in raw_meta.get('streams', []) if s['codec_type'] == 'video'), None)
             if video_stream:
                 info['video'] = {
-                    'width': int(video_stream.get('width', 0)),
-                    'height': int(video_stream.get('height', 0)),
-                    'codec': video_stream.get('codec_name'),
                     'bitRate': video_stream.get('bit_rate'),
-                    'frameRate': video_stream.get('r_frame_rate')
+                    'codec': video_stream.get('codec_name'),
+                    'frameRate': video_stream.get('r_frame_rate'),
+                    'height': int(video_stream.get('height', 0)),
+                    'width': int(video_stream.get('width', 0))
                 }
-            if 'format' in raw_meta:
-                info['duration'] = float(raw_meta['format'].get('duration', 0))
-                info['bitRate'] = raw_meta['format'].get('bit_rate')
-                info['format'] = raw_meta['format'].get('format_name')
+            
+            # Extract format info
+            fmt = raw_meta.get('format', {})
+            info['bitRate'] = fmt.get('bit_rate')
+            info['duration'] = float(fmt.get('duration', 0)) if fmt.get('duration') else 0
+            info['format'] = fmt.get('format_name')
+            
         else:
             info['error'] = error
     
