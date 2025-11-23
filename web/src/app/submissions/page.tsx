@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
-import { exportToJSON, downloadFakeFile, downloadZipPlaceholder } from "@/lib/export"
+import { exportToJSON, downloadFile, downloadZipPlaceholder } from "@/lib/export"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
@@ -16,7 +16,7 @@ export default function MySubmissionsPage() {
   const [selected, setSelected] = useState<Array<{ id: string; formTitle: string; filename: string; status: string; when: string }>>([])
 
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       const subs = await listMySubmissions()
       const withForm = await Promise.all(
         subs.map(async (s) => {
@@ -50,14 +50,18 @@ export default function MySubmissionsPage() {
     { accessorKey: "filename", header: "File" },
     { accessorKey: "status", header: "Status", cell: ({ getValue }) => <span className="capitalize">{String(getValue())}</span> },
     { id: "when", accessorFn: (r) => r.whenIso, header: "When", cell: ({ row }) => row.original.when },
-    { id: "owner", header: "Owner", cell: ({ row }) => row.original.ownerId ? (
-      <a href={`/profile/${row.original.ownerId}`} className="underline underline-offset-4">{row.original.ownerName}</a>
-    ) : <span className="text-muted-foreground">Unknown</span> },
-    { id: "actions", header: "", cell: ({ row }) => (
-      <div className="text-right">
-        <Button size="sm" variant="outline" onClick={() => downloadFakeFile(row.original.filename, { id: row.original.id, source: "submissions" })}>Download</Button>
-      </div>
-    ) },
+    {
+      id: "owner", header: "Owner", cell: ({ row }) => row.original.ownerId ? (
+        <a href={`/profile/${row.original.ownerId}`} className="underline underline-offset-4">{row.original.ownerName}</a>
+      ) : <span className="text-muted-foreground">Unknown</span>
+    },
+    {
+      id: "actions", header: "", cell: ({ row }) => (
+        <div className="text-right">
+          <Button size="sm" variant="outline" onClick={() => downloadFile(row.original.id, row.original.filename)}>Download</Button>
+        </div>
+      )
+    },
   ]
 
   const toolbar = (

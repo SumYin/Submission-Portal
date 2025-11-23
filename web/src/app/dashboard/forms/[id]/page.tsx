@@ -8,7 +8,7 @@ import { DataTable } from "@/components/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { exportToJSON, downloadFakeFile, downloadZipPlaceholder } from "@/lib/export"
+import { exportToJSON, downloadFile, downloadZipPlaceholder } from "@/lib/export"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
@@ -24,36 +24,36 @@ export default function FormDetailPage() {
 
   useEffect(() => {
     if (!id) return
-    ;(async () => {
-      const f = await getForm(id)
-      if (f) {
-        setTitle(f.title)
-        setCode(f.code)
-        const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
-        const name = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
-        setOwner({ id: u?.id ?? f.createdBy, name })
-      }
-      const s = await getFormSubmissions(id)
-      const rows = await Promise.all(s.items.map(async (x) => {
-        let submitterName: string | undefined
-        let submitterId: string | undefined
-        if (x.submittedBy) {
-          const [su, sp] = await Promise.all([getUser(x.submittedBy), getUserProfile(x.submittedBy)])
-          submitterName = (sp?.name && sp.name.trim()) ? sp!.name! : (su?.username ?? x.submittedBy)
-          submitterId = su?.id ?? x.submittedBy
+      ; (async () => {
+        const f = await getForm(id)
+        if (f) {
+          setTitle(f.title)
+          setCode(f.code)
+          const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
+          const name = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
+          setOwner({ id: u?.id ?? f.createdBy, name })
         }
-        return {
-          id: x.id,
-          filename: x.filename,
-          status: x.status,
+        const s = await getFormSubmissions(id)
+        const rows = await Promise.all(s.items.map(async (x) => {
+          let submitterName: string | undefined
+          let submitterId: string | undefined
+          if (x.submittedBy) {
+            const [su, sp] = await Promise.all([getUser(x.submittedBy), getUserProfile(x.submittedBy)])
+            submitterName = (sp?.name && sp.name.trim()) ? sp!.name! : (su?.username ?? x.submittedBy)
+            submitterId = su?.id ?? x.submittedBy
+          }
+          return {
+            id: x.id,
+            filename: x.filename,
+            status: x.status,
             when: new Date(x.createdAt).toLocaleString(),
             whenIso: x.createdAt,
-          submitterId,
-          submitterName,
-        }
-      }))
-      setSubs(rows.sort((a, b) => b.whenIso.localeCompare(a.whenIso)))
-    })()
+            submitterId,
+            submitterName,
+          }
+        }))
+        setSubs(rows.sort((a, b) => b.whenIso.localeCompare(a.whenIso)))
+      })()
   }, [id])
 
   const columns: ColumnDef<(typeof subs)[number]>[] = [
@@ -73,11 +73,13 @@ export default function FormDetailPage() {
         )
       )
     },
-    { id: "actions", header: "", cell: ({ row }) => (
-      <div className="text-right">
-        <Button size="sm" variant="outline" onClick={() => downloadFakeFile(row.original.filename, { id: row.original.id, formCode: code })}>Download</Button>
-      </div>
-    ) },
+    {
+      id: "actions", header: "", cell: ({ row }) => (
+        <div className="text-right">
+          <Button size="sm" variant="outline" onClick={() => downloadFile(row.original.id, row.original.filename)}>Download</Button>
+        </div>
+      )
+    },
   ]
 
   const [selected, setSelected] = useState<(typeof subs)[number][]>([])

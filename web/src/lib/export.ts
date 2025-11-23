@@ -36,10 +36,11 @@ export function exportToJSON(filename: string, rows: any[]) {
   downloadBlob(filename, "application/json", json)
 }
 
-// Placeholders for file and bulk downloads until backend endpoints are ready.
-export async function downloadFakeFile(filename: string, info: Record<string, any>) {
-  const content = `This is a placeholder file for ${filename}.\nDetails: ${JSON.stringify(info, null, 2)}\n\nBackend download will be wired later.`
-  downloadBlob(filename || "file.txt", "text/plain", content)
+// Placeholders for bulk downloads until backend endpoints are ready.
+export async function downloadFile(submissionId: string, filename: string) {
+  // Import dynamically to avoid circular dependency
+  const { downloadSubmissionFile } = await import("./api")
+  return downloadSubmissionFile(submissionId, filename)
 }
 
 export async function downloadZipPlaceholder(zipName: string, items: Array<{ filename: string; id?: string }>) {
