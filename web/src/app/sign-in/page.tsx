@@ -13,12 +13,14 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
 
+import { Suspense } from "react"
+
 const schema = z.object({
   username: z.string().min(3, "Enter your username"),
   password: z.string().min(3, "Enter your password"),
 })
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter()
   const params = useSearchParams()
   const form = useForm<z.infer<typeof schema>>({
@@ -87,5 +89,23 @@ export default function SignInPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-dvh grid place-items-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Welcome back</CardTitle>
+            <CardDescription>Sign in with your username and password.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[250px] animate-pulse bg-muted/20 rounded-md" />
+        </Card>
+      </div>
+    }>
+      <SignInForm />
+    </Suspense>
   )
 }

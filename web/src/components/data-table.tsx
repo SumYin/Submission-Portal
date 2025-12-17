@@ -28,10 +28,10 @@ export type DataTableProps<TData, TValue> = {
   searchPlaceholder?: string
   searchKeys?: string[]
   enableColumnVisibility?: boolean
-  getRowId?: (originalRow: TData, index: number, parent?: unknown) => string
+  getRowId?: (originalRow: TData, index: number, parent?: any) => string
 }
 
-export function DataTable<TData extends Record<string, unknown>, TValue>({ columns, data, enableSelection, toolbar, onSelectionChange, enableSearch, searchPlaceholder = "Search...", searchKeys, enableColumnVisibility, getRowId }: DataTableProps<TData, TValue>) {
+export function DataTable<TData extends Record<string, any>, TValue>({ columns, data, enableSelection, toolbar, onSelectionChange, enableSearch, searchPlaceholder = "Search...", searchKeys, enableColumnVisibility, getRowId }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
@@ -39,7 +39,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue>({ colum
 
   const columnsWithSelection = React.useMemo(() => {
     if (!enableSelection) return columns
-    const selCol: ColumnDef<TData, unknown> = {
+    const selCol: ColumnDef<TData, any> = {
       id: "select",
       header: ({ table }) => (
         <Checkbox

@@ -12,19 +12,11 @@ import { MoreHorizontal } from "lucide-react"
 import AuthGuard from "@/components/auth-guard"
 import Link from "next/link"
 
-type FormRow = {
-  id: string
-  title: string
-  code: string
-  createdAt: string
-  submissions: number
-}
-
 export default function DashboardPage() {
-  const [forms, setForms] = useState<FormRow[]>([])
-  const [selected, setSelected] = useState<FormRow[]>([])
+  const [forms, setForms] = useState<Array<{ id: string; title: string; code: string; createdAt: string; submissions: number }>>([])
+  const [selected, setSelected] = useState<Array<{ id: string }>>([])
   useEffect(() => {
-    ; (async () => {
+    ;(async () => {
       const mine = await listMyForms()
       const rows = await Promise.all(
         mine.map(async (f) => ({
@@ -43,18 +35,16 @@ export default function DashboardPage() {
     { accessorKey: "code", header: "Code", cell: ({ getValue }) => <code className="px-2 py-1 rounded bg-muted text-sm">{String(getValue())}</code> },
     { accessorKey: "submissions", header: "Submissions" },
     { id: "createdAt", accessorFn: (r) => r.createdAt, header: "Created", cell: ({ row }) => new Date(row.original.createdAt).toLocaleString() },
-    {
-      id: "actions", header: "", cell: ({ row }) => (
-        <div className="flex justify-end gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/dashboard/forms/${row.original.id}/edit`}>Edit</Link>
-          </Button>
-          <Button asChild size="sm" variant="secondary">
-            <Link href={`/dashboard/forms/${row.original.id}`}>View</Link>
-          </Button>
-        </div>
-      )
-    },
+    { id: "actions", header: "", cell: ({ row }) => (
+      <div className="flex justify-end gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/dashboard/forms/${row.original.id}/edit`}>Edit</Link>
+        </Button>
+        <Button asChild size="sm" variant="secondary">
+          <Link href={`/dashboard/forms/${row.original.id}`}>View</Link>
+        </Button>
+      </div>
+    ) },
   ]
 
   const toolbar = (
@@ -69,8 +59,8 @@ export default function DashboardPage() {
           onClick={async () => {
             if (selected.length === 0) return
             if (!window.confirm(`Delete ${selected.length} form(s)? This will remove all their submissions.`)) return
-            await Promise.all(selected.map((r) => deleteForm(r.id)))
-            setForms((prev) => prev.filter((f) => !selected.some((s) => s.id === f.id)))
+            await Promise.all(selected.map((r) => deleteForm((r as any).id)))
+            setForms((prev) => prev.filter((f) => !selected.some((s) => (s as any).id === f.id)))
           }}
         >
           Delete selected
@@ -94,8 +84,8 @@ export default function DashboardPage() {
               onClick={async () => {
                 if (selected.length === 0) return
                 if (!window.confirm(`Delete ${selected.length} form(s)? This will remove all their submissions.`)) return
-                await Promise.all(selected.map((r) => deleteForm(r.id)))
-                setForms((prev) => prev.filter((f) => !selected.some((s) => s.id === f.id)))
+                await Promise.all(selected.map((r) => deleteForm((r as any).id)))
+                setForms((prev) => prev.filter((f) => !selected.some((s) => (s as any).id === f.id)))
               }}
             >
               Delete selected
@@ -125,7 +115,7 @@ export default function DashboardPage() {
               columns={columns}
               data={forms}
               enableSelection
-              onSelectionChange={setSelected}
+              onSelectionChange={setSelected as any}
               toolbar={toolbar}
               enableSearch
               searchPlaceholder="Search forms..."

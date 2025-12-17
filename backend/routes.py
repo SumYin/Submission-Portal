@@ -89,16 +89,13 @@ def delete_my_account():
     # 1. Clear info
     current_user.display_name = None
     current_user.bio = None
-    # We set email to None. Unique constraint allows multiple NULLs in SQLite/Postgres usually.
-    # If using a DB that doesn't (like older MSSQL), this might fail, but standard is OK.
+
     current_user.email = None 
     current_user.password_hash = "deleted" # Scramble password
     
-    # 2. Rename username to free it up and anonymize
-    # Use a timestamp or UUID to ensure uniqueness if ID isn't enough (though ID is unique)
+
     current_user.username = f"deletedaccount_{current_user.id}"
     
-    # 3. Mark deleted
     current_user.is_deleted = True
     
     db.session.commit()
@@ -111,7 +108,6 @@ def delete_my_account():
 @login_required
 def create_form():
     data = request.get_json()
-    # Basic validation
     if not data.get('title'):
         return jsonify({'error': 'Title is required'}), 400
 
@@ -185,15 +181,43 @@ def delete_form(form_id):
     
     # Delete all associated submissions and their files
     submissions = Submission.query.filter_by(form_id=form_id).all()
+    
+
+    
     for submission in submissions:
         if submission.file_path:
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], submission.file_path)
-            delete_file(file_path)
+
+            
+            # Count how many submissions use this file
+            usage_count = Submission.query.filter_by(file_path=submission.file_path).count()
+            
+
+            
+            other_uses = Submission.query.filter(
+                Submission.file_path == submission.file_path,
+                Submission.form_id != form_id
+            ).count()
+            
+            if other_uses == 0:
+                pass
+
+    files_to_check = set(s.file_path for s in submissions if s.file_path)
+    
+    for submission in submissions:
         db.session.delete(submission)
     
     # Delete the form
     db.session.delete(form)
     db.session.commit()
+    
+    # Now check if files are still used
+    for relative_path in files_to_check:
+        if not relative_path: continue
+        
+        usage_count = Submission.query.filter_by(file_path=relative_path).count()
+        if usage_count == 0:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], relative_path)
+            delete_file(file_path)
     
     return '', 204
 
@@ -245,29 +269,33 @@ def submit_file(code):
     if file.filename == '':
         return jsonify({'ok': False, 'errors': ['No selected file']}), 400
 
-    # Save temporarily
+    # Save temporarily (or permanently if deduplicated)
     try:
-        file_path, original_filename = save_file(file, current_app.config['UPLOAD_FOLDER'])
+        # save_file now returns (relative_path_hash, original_filename, is_new)
+        saved_filename, original_filename, is_new = save_file(file, current_app.config['UPLOAD_FOLDER'])
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_filename)
     except Exception as e:
         return jsonify({'ok': False, 'errors': [f'Upload failed: {str(e)}']}), 500
 
     # Validate
-    passed, message, metadata = validate_submission(file_path, file.mimetype, form.constraints or {})
+    # We pass original_filename for extension validation
+    passed, message, metadata = validate_submission(file_path, file.mimetype, form.constraints or {}, original_filename=original_filename)
 
     if not passed:
-        delete_file(file_path) # Cleanup invalid file
+        # Only delete if it was a NEW file. If it was existing (deduplicated), don't delete!
+        if is_new:
+            delete_file(file_path) 
         return jsonify({'ok': False, 'errors': [message]})
 
     # Create Submission Record
-    # Store only the filename (not full path) for portability
-    relative_path = os.path.basename(file_path)
+    # Store the hash as file_path
     submission = Submission(
         id=str(uuid.uuid4()),
         form_id=form.id,
         submitted_by=current_user.id if current_user.is_authenticated else None,
         status='accepted',
         filename=original_filename,
-        file_path=relative_path,
+        file_path=saved_filename,
         size_bytes=os.path.getsize(file_path),
         mime_type=file.mimetype,
         metadata_json=metadata
@@ -296,14 +324,22 @@ def delete_submission(submission_id):
     if not (is_submitter or is_form_owner):
         return jsonify({'error': 'Forbidden'}), 403
     
-    # Delete associated file
+    # Delete associated file ONLY if no other submission uses it
     if submission.file_path:
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], submission.file_path)
-        delete_file(file_path)
-    
-    # Delete submission record
-    db.session.delete(submission)
-    db.session.commit()
+
+        file_path_to_check = submission.file_path
+        
+        db.session.delete(submission)
+        db.session.commit()
+        
+        # Check if any other submission uses this file
+        usage_count = Submission.query.filter_by(file_path=file_path_to_check).count()
+        if usage_count == 0:
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], file_path_to_check)
+            delete_file(full_path)
+    else:
+        db.session.delete(submission)
+        db.session.commit()
     
     return '', 204
 
@@ -351,7 +387,8 @@ def debug_file_info():
     
     # Save temporarily
     try:
-        file_path, original_filename = save_file(file, current_app.config['UPLOAD_FOLDER'])
+        saved_filename, original_filename, is_new = save_file(file, current_app.config['UPLOAD_FOLDER'])
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], saved_filename)
     except Exception as e:
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
     
@@ -362,5 +399,6 @@ def debug_file_info():
         
         return jsonify(info)
     finally:
-        # Cleanup temporary file
-        delete_file(file_path)
+        # Cleanup temporary file ONLY if it was new
+        if is_new:
+            delete_file(file_path)

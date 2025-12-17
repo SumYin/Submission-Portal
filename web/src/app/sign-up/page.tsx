@@ -13,12 +13,14 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
 
+import { Suspense } from "react"
+
 const schema = z.object({
   username: z.string().min(3),
   password: z.string().min(6),
 })
 
-export default function SignUpPage() {
+function SignUpForm() {
   const router = useRouter()
   const params = useSearchParams()
   const form = useForm<z.infer<typeof schema>>({
@@ -28,7 +30,7 @@ export default function SignUpPage() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-  await signUp({ username: values.username, password: values.password })
+      await signUp({ username: values.username, password: values.password })
       toast.success("Account created")
       const next = params?.get("next") || "/"
       router.push(next)
@@ -87,5 +89,23 @@ export default function SignUpPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-dvh grid place-items-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Create account</CardTitle>
+            <CardDescription>Choose a username and password.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[250px] animate-pulse bg-muted/20 rounded-md" />
+        </Card>
+      </div>
+    }>
+      <SignUpForm />
+    </Suspense>
   )
 }

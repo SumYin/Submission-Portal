@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import AuthGuard from "@/components/auth-guard"
 import FormEditor, { FormValues } from "../_components/form-editor"
-import type { FileConstraints } from "@/lib/types"
 
 export default function NewFormPage() {
   const router = useRouter()
@@ -17,7 +16,9 @@ export default function NewFormPage() {
     const [minMB, maxMB] = (values.sizeMB as [number, number] | undefined) || [0, 100]
     const minSizeBytes = Math.max(0, Math.round(minMB * 1024 * 1024))
     const maxSizeBytes = Math.min(100, Math.round(maxMB)) * 1024 * 1024
-    const constraints: FileConstraints = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const constraints: any = {
+      kind: values.kind,
       allowAllTypes: false,
       allowedTypes: selectedMimes,
       allowedExtensions: values.customExtensions,
@@ -47,16 +48,10 @@ export default function NewFormPage() {
     }
     if (values.audio) {
       const a = values.audio
-      const [minSampleRateHz, maxSampleRateHz] = a.sampleRateRange || [undefined, undefined]
-      const [minBitrateKbps, maxBitrateKbps] = a.bitrateRange || [undefined, undefined]
       const [minDurationSec, maxDurationSec] = a.durationRange || [undefined, undefined]
       constraints.audio = {
         allowedCodecs: a.allowedCodecs,
         allowedChannels: a.allowedChannels,
-        minSampleRateHz,
-        maxSampleRateHz,
-        minBitrateKbps,
-        maxBitrateKbps,
         minDurationSec,
         maxDurationSec,
       }
@@ -87,10 +82,6 @@ export default function NewFormPage() {
           initialValues={{
             kind: "image",
             allowedMimes: ["image/jpeg", "image/png"],
-            sizeMB: [0, 100],
-            video: {
-              allowedCodecs: ["h264"],
-            },
           }}
         />
       </div>

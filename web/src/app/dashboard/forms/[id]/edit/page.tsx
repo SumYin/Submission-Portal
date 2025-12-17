@@ -20,17 +20,48 @@ export default function EditFormPage() {
       ; (async () => {
         const f = await getForm(id)
         if (!f) return
-        // Infer kind from allowed types
-        const at = f.constraints.allowedTypes || []
-        const hasImage = at.some((m) => m.startsWith("image/"))
-        const hasVideo = at.some((m) => m.startsWith("video/"))
-        const hasAudio = at.some((m) => m.startsWith("audio/"))
-        const inferredKind: "image" | "video" | "audio" | "other" = hasVideo ? "video" : hasAudio ? "audio" : hasImage ? "image" : "other"
+
+        // --- Robust Kind Inference Logic ---
+        let inferredKind: "image" | "video" | "audio" | "other" = "other"
+
+        // 1. Direct Read
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((f.constraints as any).kind) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const k = (f.constraints as any).kind
+          if (["image", "video", "audio", "other"].includes(k)) {
+            inferredKind = k as "image" | "video" | "audio" | "other"
+          }
+        }
+        // 2. Constraint-based Inference (Priority)
+        else {
+          const hasVideoConstraints = f.constraints.video && Object.keys(f.constraints.video).length > 0
+          const hasAudioConstraints = f.constraints.audio && Object.keys(f.constraints.audio).length > 0
+          const hasImageConstraints = f.constraints.image && Object.keys(f.constraints.image).length > 0
+
+          if (hasVideoConstraints) inferredKind = "video"
+          else if (hasAudioConstraints) inferredKind = "audio"
+          else if (hasImageConstraints) inferredKind = "image"
+          // 3. MIME-based Inference (Fallback)
+          else {
+            const at = f.constraints.allowedTypes || []
+            const hasImage = at.some((m) => m.startsWith("image/"))
+            const hasVideo = at.some((m) => m.startsWith("video/"))
+            const hasAudio = at.some((m) => m.startsWith("audio/"))
+            inferredKind = hasVideo ? "video" : hasAudio ? "audio" : hasImage ? "image" : "other"
+          }
+        }
+
         const catId: FileCategoryId = inferredKind === "image" ? "images" : inferredKind === "video" ? "video" : inferredKind === "audio" ? "audio" : ("text" as FileCategoryId)
         const catMimes = (FILE_CATEGORIES.find((c) => c.id === catId)?.mimes || []) as string[]
+
+        // If kind is inferred, we might want to pre-fill allowedMimes even if empty on backend?
+        // No, we should respect what's on backend. But if it was "other", allowedMimes was likely custom.
         const allowedMimes = (f.constraints.allowedTypes || []).filter((m) => catMimes.includes(m))
+
         const minMB = Math.max(0, Math.round((f.constraints.minSizeBytes || 0) / (1024 * 1024)))
         const maxMB = Math.min(100, Math.round((f.constraints.maxSizeBytes || 0) / (1024 * 1024)))
+
         setInitialValues({
           title: f.title,
           description: f.description ?? "",
@@ -56,8 +87,7 @@ export default function EditFormPage() {
             ? {
               allowedCodecs: f.constraints.audio.allowedCodecs,
               allowedChannels: f.constraints.audio.allowedChannels,
-              sampleRateRange: [f.constraints.audio.minSampleRateHz ?? 0, f.constraints.audio.maxSampleRateHz ?? 0],
-              bitrateRange: [f.constraints.audio.minBitrateKbps ?? 0, f.constraints.audio.maxBitrateKbps ?? 0],
+
               durationRange: [f.constraints.audio.minDurationSec ?? 0, f.constraints.audio.maxDurationSec ?? 0],
             }
             : undefined,
@@ -73,10 +103,12 @@ export default function EditFormPage() {
       const [minMB, maxMB] = (values.sizeMB as [number, number] | undefined) || [0, 100]
       const minSizeBytes = Math.max(0, Math.round(minMB * 1024 * 1024))
       const maxSizeBytes = Math.min(100, Math.round(maxMB)) * 1024 * 1024
-      const payload: Partial<import("@/lib/types").FormSpec> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: any = {
         title: values.title,
         description: values.description || undefined,
         constraints: {
+          kind: values.kind,
           allowAllTypes: false,
           allowedTypes: selectedMimes,
           allowedExtensions: values.customExtensions,
@@ -102,10 +134,7 @@ export default function EditFormPage() {
             ? {
               allowedCodecs: values.audio.allowedCodecs,
               allowedChannels: values.audio.allowedChannels,
-              minSampleRateHz: values.audio.sampleRateRange?.[0],
-              maxSampleRateHz: values.audio.sampleRateRange?.[1],
-              minBitrateKbps: values.audio.bitrateRange?.[0],
-              maxBitrateKbps: values.audio.bitrateRange?.[1],
+
               minDurationSec: values.audio.durationRange?.[0],
               maxDurationSec: values.audio.durationRange?.[1],
             }

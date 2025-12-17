@@ -25,7 +25,7 @@ def get_video_metadata(file_path):
     except Exception as e:
         return None, str(e)
 
-def validate_submission(file_path, mime_type, constraints):
+def validate_submission(file_path, mime_type, constraints, original_filename=None):
     """
     Validates a file against the given constraints.
     Returns (passed: bool, message: str, metadata: dict).
@@ -38,11 +38,21 @@ def validate_submission(file_path, mime_type, constraints):
     if constraints.get('maxSizeBytes') and file_size > constraints['maxSizeBytes']:
         return False, f"File too large (max {constraints['maxSizeBytes']} bytes)", {}
 
-    # 2. Type Check (Basic MIME)
-    # Note: Real validation should rely on content inspection, not just MIME from client.
-    # For now, we trust the extension/mime check done by frontend but verify with tools below.
 
     metadata = {}
+
+
+    custom_extensions = constraints.get('customExtensions', [])
+    if custom_extensions:
+        if not original_filename:
+             return False, "Original filename required for extension validation", {}
+
+        allowed_exts = [ext.lower() if ext.startswith('.') else f'.{ext.lower()}' for ext in custom_extensions]
+        _, file_ext = os.path.splitext(original_filename)
+        
+        if file_ext.lower() not in allowed_exts:
+
+             return False, f"Extension {file_ext} not allowed. Allowed: {', '.join(allowed_exts)}", {}
 
     # 3. Media Validation
     if mime_type.startswith('video/'):
@@ -126,32 +136,13 @@ def validate_submission(file_path, mime_type, constraints):
             if codec not in audio_constraints['allowedCodecs']:
                 return False, f"Codec {codec} not allowed", metadata
         
-        # Check sample rate range
-        if audio_constraints.get('minSampleRateHz') and sample_rate < audio_constraints['minSampleRateHz']:
-            return False, f"Sample rate {sample_rate}Hz < min {audio_constraints['minSampleRateHz']}Hz", metadata
-        if audio_constraints.get('maxSampleRateHz') and sample_rate > audio_constraints['maxSampleRateHz']:
-            return False, f"Sample rate {sample_rate}Hz > max {audio_constraints['maxSampleRateHz']}Hz", metadata
-        
-        # Check bitrate range (if available)
-        if bit_rate:
-            bit_rate_kbps = int(bit_rate) // 1000
-            if audio_constraints.get('minBitrateKbps') and bit_rate_kbps < audio_constraints['minBitrateKbps']:
-                return False, f"Bitrate {bit_rate_kbps}kbps < min {audio_constraints['minBitrateKbps']}kbps", metadata
-            if audio_constraints.get('maxBitrateKbps') and bit_rate_kbps > audio_constraints['maxBitrateKbps']:
-                return False, f"Bitrate {bit_rate_kbps}kbps > max {audio_constraints['maxBitrateKbps']}kbps", metadata
-        
         # Check duration
         if audio_constraints.get('minDurationSec') and duration < audio_constraints['minDurationSec']:
             return False, f"Duration {duration}s < min {audio_constraints['minDurationSec']}s", metadata
         if audio_constraints.get('maxDurationSec') and duration > audio_constraints['maxDurationSec']:
             return False, f"Duration {duration}s > max {audio_constraints['maxDurationSec']}s", metadata
         
-        # Check channels (convert constraint format to number)
-        if audio_constraints.get('allowedChannels'):
-            channel_map = {'mono': 1, 'stereo': 2, '5.1': 6}
-            allowed_channel_counts = [channel_map.get(ch, 0) for ch in audio_constraints['allowedChannels']]
-            if channels not in allowed_channel_counts:
-                return False, f"Channel count {channels} not allowed", metadata
+        # Channels check removed as per user request
 
     return True, "Valid", metadata
 

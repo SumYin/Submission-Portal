@@ -30,19 +30,19 @@ export default function SubmitByCodePage() {
 
   useEffect(() => {
     let mounted = true
-    ;(async () => {
-      const f = await getFormByCode(code)
-      if (!mounted) return
-      setForm(f)
-      setNotFound(!f)
-      setLoading(false)
-      if (f) {
-        const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
-        const name = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
-        setOwnerName(name)
-        setOwnerId(u?.id ?? f.createdBy)
-      }
-    })()
+      ; (async () => {
+        const f = await getFormByCode(code)
+        if (!mounted) return
+        setForm(f)
+        setNotFound(!f)
+        setLoading(false)
+        if (f) {
+          const [u, p] = await Promise.all([getUser(f.createdBy), getUserProfile(f.createdBy)])
+          const name = (p?.name && p.name.trim()) ? p!.name! : (u?.username ?? f.createdBy)
+          setOwnerName(name)
+          setOwnerId(u?.id ?? f.createdBy)
+        }
+      })()
     return () => {
       mounted = false
     }
@@ -83,88 +83,104 @@ export default function SubmitByCodePage() {
 
   return (
     <AuthGuard>
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Submit to: {form.title}</CardTitle>
-          <CardDescription>{form.description}</CardDescription>
-          {ownerId ? (
-            <div className="text-sm text-muted-foreground mt-2">
-              Created by {" "}
-              <Link href={`/profile/${ownerId}`} className="underline underline-offset-4">{ownerName}</Link>
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Submit to: {form.title}</CardTitle>
+            <CardDescription>{form.description}</CardDescription>
+            {ownerId ? (
+              <div className="text-sm text-muted-foreground mt-2">
+                Created by {" "}
+                <Link href={`/profile/${ownerId}`} className="underline underline-offset-4">{ownerName}</Link>
+              </div>
+            ) : null}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {status !== "open" ? (
+              <Alert variant="destructive">
+                <AlertTitle>{status === "not-open" ? "Submissions not open yet" : "Submissions closed"}</AlertTitle>
+                <AlertDescription>{disabledReason}</AlertDescription>
+              </Alert>
+            ) : (
+              <Alert>
+                <AlertTitle>Submissions open</AlertTitle>
+                <AlertDescription>
+                  {form.opensAt ? `Opens: ${formatDateTime(form.opensAt)} · ` : null}
+                  {form.closesAt ? `Closes: ${formatDateTime(form.closesAt)}` : "No close date set"}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div>
+              <p className="text-sm font-medium mb-1">Specifications</p>
+              <div className="text-sm text-muted-foreground space-y-1">
+                {c.allowedTypes?.length ? (
+                  <div>Allowed types: {c.allowedTypes.join(", ")}</div>
+                ) : (
+                  <div>Allowed types: any</div>
+                )}
+                {c.minSizeBytes ? <div>Min size: {Math.round(c.minSizeBytes / (1024 * 1024))} MB</div> : null}
+                {c.maxSizeBytes ? <div>Max size: {Math.round(c.maxSizeBytes / (1024 * 1024))} MB</div> : null}
+                {(form.opensAt || form.closesAt) ? (
+                  <div>
+                    Availability: {form.opensAt ? formatDateTime(form.opensAt) : "now"} → {form.closesAt ? formatDateTime(form.closesAt) : "no deadline"}
+                  </div>
+                ) : (
+                  <div>Availability: anytime</div>
+                )}
+                {c.image ? (
+                  <div className="flex gap-2 flex-wrap">
+                    <Badge variant="secondary">Image min {c.image.minWidth ?? "-"}x{c.image.minHeight ?? "-"}</Badge>
+                    <Badge variant="secondary">Image max {c.image.maxWidth ?? "-"}x{c.image.maxHeight ?? "-"}</Badge>
+                  </div>
+                ) : null}
+                {c.video ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {c.video.minFrameRate || c.video.maxFrameRate ? (
+                      <Badge variant="secondary">FPS {c.video.minFrameRate ?? "-"}-{c.video.maxFrameRate ?? "-"}</Badge>
+                    ) : null}
+                    {c.video.allowedCodecs?.length ? (
+                      <Badge variant="secondary">Codecs: {c.video.allowedCodecs.join(", ")}</Badge>
+                    ) : null}
+                    {(c.video.minWidth || c.video.minHeight || c.video.maxWidth || c.video.maxHeight) ? (
+                      <Badge variant="secondary">Video {c.video.minWidth ?? "-"}x{c.video.minHeight ?? "-"} → {c.video.maxWidth ?? "-"}x{c.video.maxHeight ?? "-"}</Badge>
+                    ) : null}
+                  </div>
+                ) : null}
+                {c.audio ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {c.audio.allowedCodecs?.length ? (
+                      <Badge variant="secondary">Codecs: {c.audio.allowedCodecs.join(", ")}</Badge>
+                    ) : null}
+                    {c.audio.minSampleRateHz || c.audio.maxSampleRateHz ? (
+                      <Badge variant="secondary">Hz {c.audio.minSampleRateHz ?? "-"}-{c.audio.maxSampleRateHz ?? "-"}</Badge>
+                    ) : null}
+                    {c.audio.minBitrateKbps || c.audio.maxBitrateKbps ? (
+                      <Badge variant="secondary">Kbps {c.audio.minBitrateKbps ?? "-"}-{c.audio.maxBitrateKbps ?? "-"}</Badge>
+                    ) : null}
+                    {c.audio.minDurationSec || c.audio.maxDurationSec ? (
+                      <Badge variant="secondary">Duration {c.audio.minDurationSec ?? "-"}s-{c.audio.maxDurationSec ?? "-"}s</Badge>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          ) : null}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {status !== "open" ? (
-            <Alert variant="destructive">
-              <AlertTitle>{status === "not-open" ? "Submissions not open yet" : "Submissions closed"}</AlertTitle>
-              <AlertDescription>{disabledReason}</AlertDescription>
-            </Alert>
-          ) : (
-            <Alert>
-              <AlertTitle>Submissions open</AlertTitle>
-              <AlertDescription>
-                {form.opensAt ? `Opens: ${formatDateTime(form.opensAt)} · ` : null}
-                {form.closesAt ? `Closes: ${formatDateTime(form.closesAt)}` : "No close date set"}
-              </AlertDescription>
-            </Alert>
-          )}
 
-          <div>
-            <p className="text-sm font-medium mb-1">Specifications</p>
-            <div className="text-sm text-muted-foreground space-y-1">
-              {c.allowedTypes?.length ? (
-                <div>Allowed types: {c.allowedTypes.join(", ")}</div>
-              ) : (
-                <div>Allowed types: any</div>
-              )}
-              {c.minSizeBytes ? <div>Min size: {Math.round(c.minSizeBytes / (1024 * 1024))} MB</div> : null}
-              {c.maxSizeBytes ? <div>Max size: {Math.round(c.maxSizeBytes / (1024 * 1024))} MB</div> : null}
-              {(form.opensAt || form.closesAt) ? (
-                <div>
-                  Availability: {form.opensAt ? formatDateTime(form.opensAt) : "now"} → {form.closesAt ? formatDateTime(form.closesAt) : "no deadline"}
-                </div>
-              ) : (
-                <div>Availability: anytime</div>
-              )}
-              {c.image ? (
-                <div className="flex gap-2 flex-wrap">
-                  <Badge variant="secondary">Image min {c.image.minWidth ?? "-"}x{c.image.minHeight ?? "-"}</Badge>
-                  <Badge variant="secondary">Image max {c.image.maxWidth ?? "-"}x{c.image.maxHeight ?? "-"}</Badge>
-                </div>
-              ) : null}
-              {c.video ? (
-                <div className="flex gap-2 flex-wrap">
-                  {c.video.minFrameRate || c.video.maxFrameRate ? (
-                    <Badge variant="secondary">FPS {c.video.minFrameRate ?? "-"}-{c.video.maxFrameRate ?? "-"}</Badge>
-                  ) : null}
-                  {c.video.allowedCodecs?.length ? (
-                    <Badge variant="secondary">Codecs: {c.video.allowedCodecs.join(", ")}</Badge>
-                  ) : null}
-                  {(c.video.minWidth || c.video.minHeight || c.video.maxWidth || c.video.maxHeight) ? (
-                    <Badge variant="secondary">Video {c.video.minWidth ?? "-"}x{c.video.minHeight ?? "-"} → {c.video.maxWidth ?? "-"}x{c.video.maxHeight ?? "-"}</Badge>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
+            <Separator />
 
-          <Separator />
-
-          <FileUploader
-            acceptMimeTypes={c.allowAllTypes ? undefined : c.allowedTypes}
-            acceptExtensions={c.allowAllTypes ? undefined : c.allowedExtensions}
-            maxBytes={c.maxSizeBytes}
-            minBytes={c.minSizeBytes}
-            disabled={status !== "open"}
-            disabledReason={disabledReason}
-            onUpload={handleUpload}
-          />
-          <div className="text-xs text-muted-foreground">Note: Maximum file size is capped at 100 MB.</div>
-        </CardContent>
-      </Card>
-    </div>
+            <FileUploader
+              acceptMimeTypes={c.allowAllTypes ? undefined : c.allowedTypes}
+              acceptExtensions={c.allowAllTypes ? undefined : c.allowedExtensions}
+              maxBytes={c.maxSizeBytes}
+              minBytes={c.minSizeBytes}
+              disabled={status !== "open"}
+              disabledReason={disabledReason}
+              onUpload={handleUpload}
+            />
+            <div className="text-xs text-muted-foreground">Note: Maximum file size is capped at 100 MB.</div>
+          </CardContent>
+        </Card>
+      </div>
     </AuthGuard>
   )
 }
