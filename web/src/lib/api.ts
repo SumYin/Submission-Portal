@@ -66,6 +66,15 @@ export async function getBackendStatus(): Promise<any> {
   }
 }
 
+export async function resetSystem(): Promise<{ success: boolean; message?: string; error?: string }> {
+  if (shouldUseMock()) return { success: false, error: "Reset not available in mock mode" }
+  try {
+    return await request<{ success: boolean; message?: string; error?: string }>("/api/reset", { method: "POST" })
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
 // Auth
 export async function signUp(params: { username: string; password: string; email?: string }): Promise<User> {
   if (shouldUseMock()) {

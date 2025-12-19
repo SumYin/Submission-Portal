@@ -5,6 +5,7 @@ from storage import save_file, delete_file
 from validation import validate_submission, get_file_info
 import uuid
 import os
+import shutil
 from datetime import datetime
 
 api = Blueprint('api', __name__)
@@ -18,6 +19,39 @@ def debug():
         'upload_folder': current_app.config['UPLOAD_FOLDER'],
         'cwd': os.getcwd()
     })
+
+
+@api.route('/api/reset', methods=['POST'])
+def reset_system():
+    """
+    Reset the entire system:
+    - Delete all files in uploads folder
+    - Drop and recreate database tables
+    - Reinitialize upload folder
+    """
+    try:
+        # 1. Delete all files in uploads folder
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        if os.path.exists(upload_folder):
+            shutil.rmtree(upload_folder)
+        
+        # 2. Drop all tables and recreate them
+        db.drop_all()
+        db.create_all()
+        
+        # 3. Recreate upload folder
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        return jsonify({
+            'success': True,
+            'message': 'System reset complete. All data cleared and database reinitialized.'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Reset failed: {str(e)}'
+        }), 500
 
 
 @api.route('/users/<user_id>', methods=['GET'])
